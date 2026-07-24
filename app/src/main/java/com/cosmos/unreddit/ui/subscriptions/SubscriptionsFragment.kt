@@ -12,11 +12,14 @@ import androidx.lifecycle.flowWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.cosmos.unreddit.NavigationGraphDirections
+import com.cosmos.unreddit.R
+import com.cosmos.unreddit.data.model.db.Subscription
 import com.cosmos.unreddit.databinding.FragmentSubscriptionsBinding
 import com.cosmos.unreddit.ui.base.BaseFragment
 import com.cosmos.unreddit.util.SearchUtil
 import com.cosmos.unreddit.util.extension.applyWindowInsets
 import com.cosmos.unreddit.util.extension.hideSoftKeyboard
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
@@ -68,7 +71,10 @@ class SubscriptionsFragment : BaseFragment() {
     }
 
     private fun initRecyclerView() {
-        subscriptionsAdapter = SubscriptionsAdapter { onClick(it) }
+        subscriptionsAdapter = SubscriptionsAdapter(
+            { onClick(it) },
+            { showUnsubscribeDialog(it) }
+        )
         binding.listSubscriptions.apply {
             applyWindowInsets(left = false, top = false, right = false)
             layoutManager = LinearLayoutManager(requireContext())
@@ -117,6 +123,19 @@ class SubscriptionsFragment : BaseFragment() {
 
     private fun onClick(subreddit: String) {
         navigate(NavigationGraphDirections.openSubreddit(subreddit))
+    }
+
+    private fun showUnsubscribeDialog(subscription: Subscription) {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.dialog_unsubscribe_title)
+            .setMessage(getString(R.string.dialog_unsubscribe_message, subscription.name))
+            .setPositiveButton(R.string.dialog_yes) { _, _ ->
+                viewModel.unsubscribe(subscription)
+            }
+            .setNegativeButton(R.string.dialog_no) { dialog, _ ->
+                dialog.dismiss()
+            }
+            .show()
     }
 
     private fun handleSearchAction(query: String) {
