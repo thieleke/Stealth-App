@@ -153,7 +153,7 @@
     <string name="preference_show_nsfw_preview">Show NSFW preview</string>
     <string name="preference_show_spoiler_preview">Show Spoiler preview</string>
     <string name="preference_large_preview">Large previews</string>
-    <string name="preference_large_preview_summary">Double the height of image and video previews in post lists</string>
+    <string name="preference_large_preview_summary">Double the height of image, video and text previews in post lists</string>
 
     <string name="preference_download_filename_author">Name downloads after the poster</string>
     <string name="preference_download_filename_author_summary">Save images and videos as username_timestamp instead of Stealth_timestamp</string>
