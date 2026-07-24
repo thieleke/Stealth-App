@@ -61,11 +61,13 @@ class ProfileSavedAdapter(
     var contentPreferences: ContentPreferences = ContentPreferences(
         showNsfw = false,
         showNsfwPreview = false,
-        showSpoilerPreview = false
+        showSpoilerPreview = false,
+        largePreview = false
     )
         set(value) {
             if (field.showNsfwPreview != value.showNsfwPreview ||
-                field.showSpoilerPreview != value.showSpoilerPreview
+                field.showSpoilerPreview != value.showSpoilerPreview ||
+                field.largePreview != value.largePreview
             ) {
                 field = value
                 notifyDataSetChanged()

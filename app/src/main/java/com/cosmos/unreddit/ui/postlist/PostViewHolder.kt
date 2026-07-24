@@ -4,6 +4,7 @@ import android.view.View
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
+import androidx.core.view.updateLayoutParams
 import androidx.recyclerview.widget.RecyclerView
 import com.cosmos.unreddit.R
 import com.cosmos.unreddit.data.model.MediaType
@@ -131,6 +132,23 @@ abstract class PostViewHolder(
         postMetricsBinding.buttonSave.isChecked = post.saved
     }
 
+    /**
+     * Resize the media preview according to the large preview preference.
+     */
+    protected fun View.setPreviewHeight(contentPreferences: ContentPreferences) {
+        val previewHeight = resources.getDimensionPixelSize(
+            if (contentPreferences.largePreview) {
+                R.dimen.post_image_height_large
+            } else {
+                R.dimen.post_image_height
+            }
+        )
+
+        if (layoutParams.height != previewHeight) {
+            updateLayoutParams { height = previewHeight }
+        }
+    }
+
     class ImagePostViewHolder(
         private val binding: ItemPostImageBinding,
         listener: PostListAdapter.Listener
@@ -153,6 +171,8 @@ abstract class PostViewHolder(
             contentPreferences: ContentPreferences
         ) {
             super.bind(postEntity, contentPreferences)
+
+            binding.imagePostPreview.setPreviewHeight(contentPreferences)
 
             binding.imagePostPreview.load(
                 postEntity.preview,
@@ -199,6 +219,8 @@ abstract class PostViewHolder(
             contentPreferences: ContentPreferences
         ) {
             super.bind(postEntity, contentPreferences)
+
+            binding.imagePostPreview.setPreviewHeight(contentPreferences)
 
             binding.imagePostPreview.load(
                 postEntity.preview,
