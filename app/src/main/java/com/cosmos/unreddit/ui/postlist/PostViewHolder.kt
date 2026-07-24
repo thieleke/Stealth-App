@@ -2,6 +2,7 @@ package com.cosmos.unreddit.ui.postlist
 
 import android.view.View
 import android.widget.TextView
+import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
@@ -17,6 +18,7 @@ import com.cosmos.unreddit.databinding.ItemPostImageBinding
 import com.cosmos.unreddit.databinding.ItemPostLinkBinding
 import com.cosmos.unreddit.databinding.ItemPostTextBinding
 import com.cosmos.unreddit.ui.common.widget.AwardView
+import com.cosmos.unreddit.ui.common.widget.RedditView
 import com.cosmos.unreddit.util.ClickableMovementMethod
 import com.cosmos.unreddit.util.extension.load
 import com.cosmos.unreddit.util.extension.setRatio
@@ -149,6 +151,28 @@ abstract class PostViewHolder(
         }
     }
 
+    /**
+     * Resize the text preview according to the large preview preference. The preview wraps its
+     * content, so only the maximum height is constrained.
+     */
+    protected fun View.setPreviewMaxHeight(contentPreferences: ContentPreferences) {
+        val previewMaxHeight = resources.getDimensionPixelSize(
+            if (contentPreferences.largePreview) {
+                R.dimen.post_text_max_height_large
+            } else {
+                R.dimen.post_text_max_height
+            }
+        )
+
+        val params = layoutParams as? ConstraintLayout.LayoutParams ?: return
+
+        if (params.matchConstraintMaxHeight != previewMaxHeight) {
+            updateLayoutParams<ConstraintLayout.LayoutParams> {
+                matchConstraintMaxHeight = previewMaxHeight
+            }
+        }
+    }
+
     class ImagePostViewHolder(
         private val binding: ItemPostImageBinding,
         listener: PostListAdapter.Listener
@@ -240,7 +264,7 @@ abstract class PostViewHolder(
     class TextPostViewHolder(
         private val binding: ItemPostTextBinding,
         listener: PostListAdapter.Listener,
-        clickableMovementMethod: ClickableMovementMethod
+        onLinkClickListener: RedditView.OnLinkClickListener?
     ) : PostViewHolder(
         binding.root,
         binding.includePostInfo,
@@ -250,11 +274,27 @@ abstract class PostViewHolder(
     ) {
 
         init {
-            binding.textPostSelf.movementMethod = clickableMovementMethod
-            binding.textPostSelf.setOnLongClickListener {
-                listener.onClick(bindingAdapterPosition, true)
-                true
-            }
+            // The preview consumes the touch events, so the clicks made outside of a link have to
+            // be forwarded to the post itself
+            binding.textPostSelf.movementMethod = ClickableMovementMethod(
+                object : ClickableMovementMethod.OnClickListener {
+                    override fun onLinkClick(link: String) {
+                        onLinkClickListener?.onLinkClick(link)
+                    }
+
+                    override fun onLinkLongClick(link: String) {
+                        onLinkClickListener?.onLinkLongClick(link)
+                    }
+
+                    override fun onClick() {
+                        listener.onClick(bindingAdapterPosition)
+                    }
+
+                    override fun onLongClick() {
+                        listener.onClick(bindingAdapterPosition, true)
+                    }
+                }
+            )
         }
 
         override fun bind(
@@ -264,6 +304,8 @@ abstract class PostViewHolder(
             super.bind(postEntity, contentPreferences)
 
             val previewText = postEntity.previewText
+
+            binding.textPostSelfCard.setPreviewMaxHeight(contentPreferences)
 
             binding.textPostSelf.apply {
                 if (postEntity.shouldShowPreview(contentPreferences) && previewText != null) {

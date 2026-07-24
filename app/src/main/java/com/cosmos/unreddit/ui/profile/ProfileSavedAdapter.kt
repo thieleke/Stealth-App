@@ -23,7 +23,6 @@ import com.cosmos.unreddit.ui.common.widget.RedditView
 import com.cosmos.unreddit.ui.postlist.PostListAdapter
 import com.cosmos.unreddit.ui.postlist.PostViewHolder
 import com.cosmos.unreddit.ui.user.UserCommentsAdapter
-import com.cosmos.unreddit.util.ClickableMovementMethod
 import com.cosmos.unreddit.util.DateUtil
 import com.cosmos.unreddit.util.extension.blurText
 
@@ -37,26 +36,6 @@ class ProfileSavedAdapter(
     private val colorPrimary by lazy {
         ColorStateList.valueOf(ContextCompat.getColor(context, R.color.colorPrimary))
     }
-
-    private val clickableMovementMethod = ClickableMovementMethod(
-        object : ClickableMovementMethod.OnClickListener {
-            override fun onLinkClick(link: String) {
-                onLinkClickListener?.onLinkClick(link)
-            }
-
-            override fun onLinkLongClick(link: String) {
-                onLinkClickListener?.onLinkLongClick(link)
-            }
-
-            override fun onClick() {
-                // ignore
-            }
-
-            override fun onLongClick() {
-                // ignore
-            }
-        }
-    )
 
     var contentPreferences: ContentPreferences = ContentPreferences(
         showNsfw = false,
@@ -121,7 +100,7 @@ class ProfileSavedAdapter(
             PostType.TEXT.value -> PostViewHolder.TextPostViewHolder(
                 ItemPostTextBinding.inflate(inflater, parent, false),
                 listener,
-                clickableMovementMethod
+                onLinkClickListener
             )
             // Image post
             PostType.IMAGE.value -> PostViewHolder.ImagePostViewHolder(

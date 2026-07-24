@@ -13,7 +13,6 @@ import com.cosmos.unreddit.databinding.ItemPostImageBinding
 import com.cosmos.unreddit.databinding.ItemPostLinkBinding
 import com.cosmos.unreddit.databinding.ItemPostTextBinding
 import com.cosmos.unreddit.ui.common.widget.RedditView
-import com.cosmos.unreddit.util.ClickableMovementMethod
 
 class PostListAdapter(
     private val repository: PostListRepository,
@@ -46,26 +45,6 @@ class PostListAdapter(
 
         fun onSaveClick(position: Int)
     }
-
-    private val clickableMovementMethod = ClickableMovementMethod(
-        object : ClickableMovementMethod.OnClickListener {
-            override fun onLinkClick(link: String) {
-                onLinkClickListener?.onLinkClick(link)
-            }
-
-            override fun onLinkLongClick(link: String) {
-                onLinkClickListener?.onLinkLongClick(link)
-            }
-
-            override fun onClick() {
-                // ignore
-            }
-
-            override fun onLongClick() {
-                // ignore
-            }
-        }
-    )
 
     var contentPreferences: ContentPreferences = ContentPreferences(
         showNsfw = false,
@@ -132,7 +111,7 @@ class PostListAdapter(
             PostType.TEXT.value -> PostViewHolder.TextPostViewHolder(
                 ItemPostTextBinding.inflate(inflater, parent, false),
                 listener,
-                clickableMovementMethod
+                onLinkClickListener
             )
             // Image post
             PostType.IMAGE.value -> PostViewHolder.ImagePostViewHolder(
