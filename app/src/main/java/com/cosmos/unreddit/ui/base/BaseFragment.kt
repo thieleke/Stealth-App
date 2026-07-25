@@ -73,7 +73,9 @@ open class BaseFragment : Fragment(), PostListAdapter.PostClickListener,
     }
 
     override fun onClick(post: PostEntity) {
-        onClick(parentFragmentManager, post)
+        // Must be the activity's FragmentManager, not the NavHost's: FragmentNavigator throws for
+        // any fragment added to the manager it owns without going through navigate().
+        onClick(requireActivity().supportFragmentManager, post)
     }
 
     protected open fun onClick(fragmentManager: FragmentManager, post: PostEntity) {

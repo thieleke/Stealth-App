@@ -5,7 +5,10 @@ plugins {
     id("com.android.application")
     kotlin("android")
     id("kotlin-parcelize")
+    // kapt is still required by data binding; Hilt and Room ride along on it. Moshi's codegen
+    // dropped kapt support and runs through KSP.
     kotlin("kapt")
+    id("com.google.devtools.ksp")
     id("dagger.hilt.android.plugin")
     id("androidx.navigation.safeargs.kotlin")
 }
@@ -136,7 +139,7 @@ dependencies {
     implementation("com.squareup.retrofit2:converter-moshi:${Dependencies.Versions.retrofit}")
 
     implementation("com.squareup.moshi:moshi:${Dependencies.Versions.moshi}")
-    kapt("com.squareup.moshi:moshi-kotlin-codegen:${Dependencies.Versions.moshi}")
+    ksp("com.squareup.moshi:moshi-kotlin-codegen:${Dependencies.Versions.moshi}")
     implementation("com.squareup.moshi:moshi-adapters:${Dependencies.Versions.moshi}")
 
     // Pinned explicitly: the code targets OkHttp 4 / Okio 3 APIs directly, so neither should be
