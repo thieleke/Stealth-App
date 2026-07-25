@@ -34,6 +34,10 @@ class PostListAdapter(
         fun onLinkClick(post: PostEntity)
 
         fun onSaveClick(post: PostEntity)
+
+        fun onUserClick(post: PostEntity)
+
+        fun onSubredditClick(post: PostEntity)
     }
 
     interface Listener {
@@ -44,6 +48,10 @@ class PostListAdapter(
         fun onMenuClick(position: Int)
 
         fun onSaveClick(position: Int)
+
+        fun onUserClick(position: Int)
+
+        fun onSubredditClick(position: Int)
     }
 
     var contentPreferences: ContentPreferences = ContentPreferences(
@@ -99,6 +107,18 @@ class PostListAdapter(
                 postClickListener.onSaveClick(it)
                 it.saved = !it.saved
                 notifyItemChanged(position, it)
+            }
+        }
+
+        override fun onUserClick(position: Int) {
+            getItem(position)?.let {
+                postClickListener.onUserClick(it)
+            }
+        }
+
+        override fun onSubredditClick(position: Int) {
+            getItem(position)?.let {
+                postClickListener.onSubredditClick(it)
             }
         }
     }
