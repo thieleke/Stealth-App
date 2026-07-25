@@ -3,12 +3,6 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <data>
-        <variable
-            name="profile"
-            type="com.cosmos.unreddit.data.model.db.Profile" />
-    </data>
-
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -16,41 +10,32 @@
         android:layout_marginVertical="8dp"
         tools:layout_width="92dp">
 
-        <!--
-        The ring is a sibling rather than a background on the avatar so that the space it needs is
-        reserved whether or not it is visible, keeping every row the same height.
-        -->
+        <!-- Same reserved box as a profile row so every avatar in the tray lines up -->
         <FrameLayout
             android:layout_width="@dimen/profile_home_ring_size"
             android:layout_height="@dimen/profile_home_ring_size"
             android:layout_gravity="center_horizontal">
 
-            <View
-                android:id="@+id/profile_selected_ring"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:background="@drawable/profile_selected_ring"
-                android:visibility="gone"
-                tools:visibility="visible" />
-
-            <com.cosmos.unreddit.ui.common.widget.AvatarView
-                android:id="@+id/profile_avatar"
+            <com.google.android.material.imageview.ShapeableImageView
+                android:id="@+id/image_add"
                 android:layout_width="@dimen/profile_home_size"
                 android:layout_height="@dimen/profile_home_size"
                 android:layout_gravity="center"
-                app:text="@{profile.name}"
-                tools:text="S" />
+                android:background="@color/profile_new_background"
+                android:contentDescription="@string/profile_manager_add_profile"
+                app:contentPadding="6dp"
+                app:shapeAppearanceOverlay="@style/CircularImageViewStyle"
+                app:srcCompat="@drawable/ic_add" />
 
         </FrameLayout>
 
         <TextView
-            android:id="@+id/profile_name"
+            android:id="@+id/label_add"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center"
             android:layout_marginTop="@dimen/profile_name_margin"
-            android:text="@{profile.name}"
-            tools:text="Profile" />
+            android:text="@string/profile_manager_add_profile" />
 
     </LinearLayout>
 
