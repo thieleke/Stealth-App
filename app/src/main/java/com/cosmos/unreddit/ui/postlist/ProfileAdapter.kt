@@ -1,10 +1,14 @@
 package com.cosmos.unreddit.ui.postlist
 
+import android.graphics.Typeface
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.core.content.ContextCompat
+import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import com.cosmos.unreddit.R
 import com.cosmos.unreddit.data.model.ProfileItem
 import com.cosmos.unreddit.data.model.db.Profile
 import com.cosmos.unreddit.databinding.ItemNewProfileHomeBinding
@@ -15,6 +19,29 @@ class ProfileAdapter(
     val onLongClickListener: (Profile) -> Unit,
     val onNewProfileClickListener: () -> Unit
 ) : ListAdapter<ProfileItem, RecyclerView.ViewHolder>(PROFILE_COMPARATOR) {
+
+    /**
+     * Id of the profile currently in use, highlighted in the tray. Setting it rebinds only the rows
+     * that gain or lose the highlight.
+     */
+    var currentProfileId: Int? = null
+        set(value) {
+            if (field == value) return
+
+            val previous = field
+            field = value
+
+            listOf(previous, value).forEach { id ->
+                indexOfProfile(id).takeIf { it != RecyclerView.NO_POSITION }
+                    ?.let { notifyItemChanged(it) }
+            }
+        }
+
+    private fun indexOfProfile(profileId: Int?): Int {
+        return profileId?.let { id ->
+            currentList.indexOfFirst { it is ProfileItem.UserProfile && it.profile.id == id }
+        } ?: RecyclerView.NO_POSITION
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
         val inflater = LayoutInflater.from(parent.context)
@@ -51,6 +78,19 @@ class ProfileAdapter(
 
         fun bind(profile: Profile) {
             binding.profile = profile
+
+            val isCurrent = profile.id == currentProfileId
+            binding.profileSelectedRing.isVisible = isCurrent
+            binding.profileName.run {
+                setTypeface(null, if (isCurrent) Typeface.BOLD else Typeface.NORMAL)
+                setTextColor(
+                    ContextCompat.getColor(
+                        context,
+                        if (isCurrent) R.color.colorPrimary else R.color.text_color_secondary
+                    )
+                )
+            }
+
             binding.profileAvatar.setOnClickListener { onClickListener.invoke(profile) }
             binding.profileAvatar.setOnLongClickListener {
                 onLongClickListener.invoke(profile)

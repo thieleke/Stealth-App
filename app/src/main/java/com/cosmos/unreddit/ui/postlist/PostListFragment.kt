@@ -88,8 +88,6 @@ class PostListFragment : BaseFragment(), PullToRefreshLayout.OnRefreshListener {
 
     private lateinit var profileAdapter: ProfileAdapter
 
-    private var currentProfileId: Int? = null
-
     @Inject
     lateinit var repository: PostListRepository
 
@@ -179,7 +177,7 @@ class PostListFragment : BaseFragment(), PullToRefreshLayout.OnRefreshListener {
 
             launch {
                 viewModel.currentProfile.collect {
-                    currentProfileId = it.id
+                    profileAdapter.currentProfileId = it.id
                     binding.appBar.profileImage.setText(it.name)
                 }
             }
@@ -336,7 +334,7 @@ class PostListFragment : BaseFragment(), PullToRefreshLayout.OnRefreshListener {
     }
 
     private fun onProfileLongClick(profile: Profile) {
-        if (profile.id == currentProfileId) {
+        if (profile.id == profileAdapter.currentProfileId) {
             // Same rule as the profile manager, which hides its delete icon for the active
             // profile: deleting it would leave the app pointing at a profile that no longer
             // exists. Long pressing it is silent otherwise, so explain why nothing happened.
