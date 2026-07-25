@@ -19,22 +19,6 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties["storeFile"] = "keystore.jks"
 }
 
-// kapt on JDK 16+ needs --add-exports/--add-opens to access internal javac
-// classes (KT-45545). Remove only if switching to KSP or JDK <= 15.
-kapt {
-    javacOptions {
-        option("-Xss4m")
-        option("-J--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED")
-        option("-J--add-opens=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED")
-        option("-J--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED")
-        option("-J--add-opens=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED")
-        option("-J--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED")
-        option("-J--add-opens=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED")
-        option("-J--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED")
-        option("-J--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED")
-    }
-}
-
 android {
     namespace = Config.namespace
 
@@ -61,11 +45,15 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            keyAlias = keystoreProperties.getProperty("keyAlias", "")
-            keyPassword = keystoreProperties.getProperty("keyPassword", "")
-            storeFile = file(keystoreProperties["storeFile"] as String)
-            storePassword = keystoreProperties.getProperty("storePassword", "")
+        // Only declared when keys/keystore.properties is present, so that a checkout without the
+        // signing material can still build release (unsigned) for verification.
+        if (keystorePropertiesFile.exists()) {
+            create("release") {
+                keyAlias = keystoreProperties.getProperty("keyAlias", "")
+                keyPassword = keystoreProperties.getProperty("keyPassword", "")
+                storeFile = file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties.getProperty("storePassword", "")
+            }
         }
     }
 
@@ -77,7 +65,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.findByName("release")
         }
         getByName("debug") {
             applicationIdSuffix = ".dev"
@@ -88,15 +76,18 @@ android {
     buildFeatures {
         viewBinding = true
         dataBinding = true
+        // AGP 8 stopped generating BuildConfig by default; APPLICATION_ID and VERSION_NAME are
+        // both read at runtime.
+        buildConfig = true
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "17"
         freeCompilerArgs = listOf("-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi")
     }
 }
@@ -139,6 +130,8 @@ dependencies {
 
     implementation("androidx.core:core-splashscreen:${Dependencies.Versions.splashscreen}")
 
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:${Dependencies.Versions.coroutines}")
+
     implementation("com.squareup.retrofit2:retrofit:${Dependencies.Versions.retrofit}")
     implementation("com.squareup.retrofit2:converter-moshi:${Dependencies.Versions.retrofit}")
 
@@ -146,7 +139,10 @@ dependencies {
     kapt("com.squareup.moshi:moshi-kotlin-codegen:${Dependencies.Versions.moshi}")
     implementation("com.squareup.moshi:moshi-adapters:${Dependencies.Versions.moshi}")
 
-    implementation("com.squareup.okio:okio:${Dependencies.Versions.moshi}")
+    // Pinned explicitly: the code targets OkHttp 4 / Okio 3 APIs directly, so neither should be
+    // left to transitive resolution.
+    implementation("com.squareup.okhttp3:okhttp:${Dependencies.Versions.okHttp}")
+    implementation("com.squareup.okio:okio:${Dependencies.Versions.okio}")
 
     implementation("io.coil-kt:coil:${Dependencies.Versions.coil}")
     implementation("io.coil-kt:coil-gif:${Dependencies.Versions.coil}")

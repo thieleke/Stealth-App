@@ -176,7 +176,9 @@ class MediaDownloadWorker @AssistedInject constructor (
                         .setStyle(
                             NotificationCompat.BigPictureStyle()
                                 .bigPicture(bitmap)
-                                .bigLargeIcon(null)
+                                // Suppresses the large icon while the notification is expanded.
+                                // Cast disambiguates the Bitmap and Icon overloads.
+                                .bigLargeIcon(null as Bitmap?)
                         )
                 }
 
