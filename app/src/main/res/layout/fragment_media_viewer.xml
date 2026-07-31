@@ -86,7 +86,6 @@
             android:layout_width="@dimen/media_button_size"
             android:layout_height="@dimen/media_button_size"
             android:background="?attr/selectableItemBackgroundBorderless"
-            app:tint="@android:color/white"
             app:srcCompat="@drawable/ic_download"/>
 
         <com.cosmos.unreddit.ui.common.widget.CheckableImageView

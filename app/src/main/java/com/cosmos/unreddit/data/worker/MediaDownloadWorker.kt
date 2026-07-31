@@ -23,6 +23,7 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.cosmos.unreddit.BuildConfig
@@ -50,6 +51,7 @@ import okio.buffer
 import okio.sink
 import java.io.File
 import java.util.Date
+import java.util.UUID
 import java.nio.ByteBuffer
 
 @HiltWorker
@@ -385,7 +387,16 @@ class MediaDownloadWorker @AssistedInject constructor (
         private const val KEY_TYPE = "KEY_TYPE"
         private const val KEY_SOUND = "KEY_SOUND"
 
-        fun enqueueWork(context: Context, url: String, type: GalleryMedia.Type, sound: String?) {
+        /**
+         * @return the id of the enqueued request, to observe the outcome of the download with
+         * [WorkManager.getWorkInfoByIdLiveData]
+         */
+        fun enqueueWork(
+            context: Context,
+            url: String,
+            type: GalleryMedia.Type,
+            sound: String?
+        ): UUID {
             val downloadRequest = OneTimeWorkRequestBuilder<MediaDownloadWorker>()
                 .addTag(WORK_TAG)
                 .setInputData(
@@ -398,6 +409,8 @@ class MediaDownloadWorker @AssistedInject constructor (
                 .build()
 
             context.enqueueUniqueWork(url, ExistingWorkPolicy.APPEND_OR_REPLACE, downloadRequest)
+
+            return downloadRequest.id
         }
 
         fun cancelWork(context: Context) {

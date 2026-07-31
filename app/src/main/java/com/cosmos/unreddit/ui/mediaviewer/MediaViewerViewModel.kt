@@ -1,7 +1,11 @@
 package com.cosmos.unreddit.ui.mediaviewer
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.asFlow
 import androidx.lifecycle.viewModelScope
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
 import com.cosmos.unreddit.data.local.mapper.PostMapper2
 import com.cosmos.unreddit.data.model.GalleryMedia
 import com.cosmos.unreddit.data.model.GalleryMedia.Type
@@ -21,6 +25,7 @@ import com.cosmos.unreddit.util.LinkUtil.https
 import com.cosmos.unreddit.util.PostUtil
 import com.cosmos.unreddit.util.extension.updateValue
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +33,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
@@ -37,11 +43,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import retrofit2.HttpException
 import java.io.IOException
+import java.util.UUID
 import javax.inject.Inject
 
 @HiltViewModel
 class MediaViewerViewModel
 @Inject constructor(
+    @ApplicationContext private val appContext: Context,
     private val imgurRepository: ImgurRepository,
     private val streamableRepository: StreamableRepository,
     private val gfycatRepository: GfycatRepository,
@@ -59,6 +67,15 @@ class MediaViewerViewModel
     private val _selectedPage: MutableStateFlow<Int> = MutableStateFlow(0)
     val selectedPage: StateFlow<Int> = _selectedPage
 
+    /**
+     * Download state of the media, by adapter position. Media that has never been downloaded has
+     * no entry. Held here rather than in the fragment so the download button state survives
+     * configuration changes.
+     */
+    private val _downloadStates: MutableStateFlow<Map<Int, DownloadState>> =
+        MutableStateFlow(emptyMap())
+    val downloadStates: StateFlow<Map<Int, DownloadState>> = _downloadStates
+
     val isMultiMedia: StateFlow<Boolean> = _media
         .filter { it is Resource.Success }
         .map { (it as Resource.Success).data.size > 1 }
@@ -68,6 +85,45 @@ class MediaViewerViewModel
         get() = preferencesRepository.getMuteVideo(false)
 
     var hideControls: Boolean = false
+
+    /**
+     * Mark [page] as downloading, then wait for the download enqueued as [workId] to finish and
+     * mark it as downloaded if it succeeded. Observed from [viewModelScope] so the result is not
+     * lost when the fragment view is recreated while the download is still running.
+     */
+    fun awaitDownload(page: Int, workId: UUID) {
+        val previousState = _downloadStates.value[page]
+        setDownloadState(page, DownloadState.DOWNLOADING)
+
+        viewModelScope.launch {
+            val workInfo = WorkManager.getInstance(appContext)
+                .getWorkInfoByIdLiveData(workId)
+                .asFlow()
+                .filterNotNull()
+                .first { it.state.isFinished }
+
+            if (workInfo.state == WorkInfo.State.SUCCEEDED) {
+                setDownloadState(page, DownloadState.DOWNLOADED)
+            } else {
+                // Failed or cancelled: fall back to whatever the state was before this attempt
+                setDownloadState(page, previousState)
+            }
+        }
+    }
+
+    private fun setDownloadState(page: Int, state: DownloadState?) {
+        _downloadStates.updateValue(
+            when (state) {
+                null -> _downloadStates.value - page
+                else -> _downloadStates.value + (page to state)
+            }
+        )
+    }
+
+    enum class DownloadState {
+        DOWNLOADING,
+        DOWNLOADED
+    }
 
     init {
         viewModelScope.launch { preferencesRepository.getMuteVideo(false).first() }

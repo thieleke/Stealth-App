@@ -1,6 +1,8 @@
 package com.cosmos.unreddit.ui.mediaviewer
 
 import android.Manifest
+import android.content.res.ColorStateList
+import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -29,6 +31,7 @@ import com.cosmos.unreddit.data.model.Resource
 import com.cosmos.unreddit.data.worker.MediaDownloadWorker
 import com.cosmos.unreddit.databinding.FragmentMediaViewerBinding
 import com.cosmos.unreddit.ui.common.FullscreenBottomSheetFragment
+import com.cosmos.unreddit.ui.mediaviewer.MediaViewerViewModel.DownloadState
 import com.cosmos.unreddit.util.extension.betterSmoothScrollToPosition
 import com.cosmos.unreddit.util.extension.clearWindowInsetsListener
 import com.cosmos.unreddit.util.extension.getRecyclerView
@@ -111,6 +114,9 @@ class MediaViewerFragment : FullscreenBottomSheetFragment() {
             buttonDownload.setOnClickListener { requestMediaDownload() }
             infoRetry.setActionClickListener { retry() }
         }
+
+        // Restore the download state of the current page, e.g. after a configuration change
+        applyDownloadButtonTint()
     }
 
     private fun applyInsets() {
@@ -157,6 +163,13 @@ class MediaViewerFragment : FullscreenBottomSheetFragment() {
                     binding.listThumbnails.betterSmoothScrollToPosition(it)
                     thumbnailAdapter.selectItem(it)
                     binding.textPageCurrent.text = it.plus(1).toString()
+                    applyDownloadButtonTint()
+                }
+            }
+
+            launch {
+                viewerViewModel.downloadStates.collect {
+                    applyDownloadButtonTint()
                 }
             }
         }
@@ -304,7 +317,7 @@ class MediaViewerFragment : FullscreenBottomSheetFragment() {
 
         val media = mediaAdapter.getItem(page)
         media?.let {
-            MediaDownloadWorker.enqueueWork(
+            val workId = MediaDownloadWorker.enqueueWork(
                 requireContext().applicationContext,
                 it.url,
                 it.type,
@@ -316,6 +329,9 @@ class MediaViewerFragment : FullscreenBottomSheetFragment() {
                 R.string.toast_download_started,
                 Toast.LENGTH_SHORT
             ).show()
+
+            // The button is dimmed while the download runs, and dimmed further once it succeeds
+            viewerViewModel.awaitDownload(page, workId)
         }
     }
 
@@ -366,6 +382,16 @@ class MediaViewerFragment : FullscreenBottomSheetFragment() {
                 windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
             }
         }
+    }
+
+    private fun applyDownloadButtonTint() {
+        val currentPage = viewerViewModel.selectedPage.value
+        val color = when (viewerViewModel.downloadStates.value[currentPage]) {
+            DownloadState.DOWNLOADING -> Color.argb(255, 128, 128, 128)
+            DownloadState.DOWNLOADED -> Color.argb(255, 64, 64, 64)
+            null -> Color.WHITE
+        }
+        binding.buttonDownload.imageTintList = ColorStateList.valueOf(color)
     }
 
     private fun showControls(show: Boolean) {
