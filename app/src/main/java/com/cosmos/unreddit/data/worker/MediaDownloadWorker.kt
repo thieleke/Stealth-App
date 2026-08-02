@@ -99,8 +99,8 @@ class MediaDownloadWorker @AssistedInject constructor (
 
         applicationContext.showNotification(NOTIFICATION_ID, builder.build())
 
-        val extension = MimeTypeMap.getFileExtensionFromUrl(url)
-        val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension) ?: ""
+        val mimeType = getMimeType(url, type)
+        val extension = getExtension(mimeType, url)
         val name = when {
             sound == null -> "${filename}.$extension"
             else -> "${filename}_video.$extension"
@@ -360,6 +360,38 @@ class MediaDownloadWorker @AssistedInject constructor (
             MediaStore.Images.Media.getBitmap(applicationContext.contentResolver, uri)
         }
     }
+
+    /**
+     * The extension of a link can disagree with the type of the media it points to: Reddit serves
+     * the mp4 variant of a gif from the URL of the gif itself, for instance. [MediaStore] rejects
+     * a MIME type that does not match the collection the media is inserted into, so [type] takes
+     * precedence over the extension of [url].
+     */
+    private fun getMimeType(url: String, type: GalleryMedia.Type): String {
+        val urlExtension = MimeTypeMap.getFileExtensionFromUrl(url)
+        val urlMimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(urlExtension)
+
+        return urlMimeType?.takeIf { it.startsWith(type.mimeTypePrefix) } ?: type.defaultMimeType
+    }
+
+    private fun getExtension(mimeType: String, url: String): String {
+        return MimeTypeMap.getSingleton().getExtensionFromMimeType(mimeType)
+            ?: MimeTypeMap.getFileExtensionFromUrl(url)
+    }
+
+    private val GalleryMedia.Type.mimeTypePrefix: String
+        get() = when (this) {
+            GalleryMedia.Type.IMAGE -> "image/"
+            GalleryMedia.Type.VIDEO -> "video/"
+            GalleryMedia.Type.AUDIO -> "audio/"
+        }
+
+    private val GalleryMedia.Type.defaultMimeType: String
+        get() = when (this) {
+            GalleryMedia.Type.IMAGE -> "image/jpeg"
+            GalleryMedia.Type.VIDEO -> "video/mp4"
+            GalleryMedia.Type.AUDIO -> "audio/mp4"
+        }
 
     /**
      * Delete a file downloaded by [downloadMedia] or [downloadMediaLegacy], which respectively
