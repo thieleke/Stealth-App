@@ -8,18 +8,23 @@ import org.junit.Test
 class FilenameUtilTest {
 
     /**
-     * U+3042 HIRAGANA LETTER A, three bytes once encoded to UTF-8.
+     * U+3042 HIRAGANA LETTER A, a character outside the supported range.
      *
      * The characters this class exercises are built from their code point rather than written as
      * literals, so that the assertions do not depend on the encoding the compiler reads the file
      * with and stay readable in a diff.
      */
-    private val threeByteCharacter = Char(0x3042).toString()
+    private val unsupportedCharacter = Char(0x3042).toString()
 
     /**
      * U+1F600 GRINNING FACE, outside the BMP and so a surrogate pair in UTF-16.
      */
     private val surrogatePair = String(Character.toChars(0x1F600))
+
+    /**
+     * U+00E9 LATIN SMALL LETTER E WITH ACUTE, supported and two bytes once encoded to UTF-8.
+     */
+    private val accentedCharacter = Char(0x00E9).toString()
 
     @Test
     fun `typical reddit user name is left untouched`() {
@@ -53,12 +58,22 @@ class FilenameUtilTest {
     }
 
     @Test
-    fun `unpaired surrogates are replaced but valid pairs are kept`() {
+    fun `western european letters are kept`() {
+        assertEquals("a${accentedCharacter}b", FilenameUtil.sanitize("a${accentedCharacter}b"))
+        // U+00C0 and U+017F, the bounds of the supported range
+        listOf(0x00C0, 0x017F).map { Char(it).toString() }.forEach {
+            assertEquals(it, FilenameUtil.sanitize(it))
+        }
+    }
+
+    @Test
+    fun `characters outside the supported range are dropped`() {
+        assertEquals("ab", FilenameUtil.sanitize("a${unsupportedCharacter}b"))
+        assertEquals("ab", FilenameUtil.sanitize("a${surrogatePair}b"))
         // A lone surrogate cannot be encoded and would reach the file system as '?'
-        assertEquals("a_b", FilenameUtil.sanitize("a" + Char(0xD83D) + "b"))
-        assertEquals("a_b", FilenameUtil.sanitize("a" + Char(0xDE00) + "b"))
-        assertEquals("a__b", FilenameUtil.sanitize("a" + Char(0xDE00) + Char(0xD83D) + "b"))
-        assertEquals("a${surrogatePair}b", FilenameUtil.sanitize("a${surrogatePair}b"))
+        assertEquals("ab", FilenameUtil.sanitize("a" + Char(0xD83D) + "b"))
+        assertEquals("ab", FilenameUtil.sanitize("a" + Char(0xDE00) + "b"))
+        assertNull(FilenameUtil.sanitize(unsupportedCharacter.repeat(10)))
     }
 
     @Test
@@ -106,28 +121,12 @@ class FilenameUtilTest {
 
     @Test
     fun `truncation leaves room for the suffix within the 255 byte component limit`() {
-        // 100 characters of 3 bytes each would already be 300 bytes on their own
-        val sanitized = FilenameUtil.sanitize(threeByteCharacter.repeat(200))!!
+        // The worst case the supported range allows: every character costs two bytes
+        val sanitized = FilenameUtil.sanitize(accentedCharacter.repeat(200))!!
 
         // Longest name MediaDownloadWorker can build out of the sanitized base
         val assembled = "${sanitized}_20260725_120000_video.webm"
 
         assertTrue(assembled.toByteArray(Charsets.UTF_8).size <= 255)
-    }
-
-    @Test
-    fun `truncation does not leave a dangling surrogate`() {
-        val sanitized = FilenameUtil.sanitize(surrogatePair.repeat(200))!!
-
-        assertEquals(0, sanitized.length % 2)
-        assertTrue(sanitized.indices.all { index ->
-            if (Character.isHighSurrogate(sanitized[index])) {
-                index + 1 < sanitized.length && Character.isLowSurrogate(sanitized[index + 1])
-            } else if (Character.isLowSurrogate(sanitized[index])) {
-                index > 0 && Character.isHighSurrogate(sanitized[index - 1])
-            } else {
-                true
-            }
-        })
     }
 }
