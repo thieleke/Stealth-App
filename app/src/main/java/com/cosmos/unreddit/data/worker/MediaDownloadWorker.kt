@@ -1,6 +1,7 @@
 package com.cosmos.unreddit.data.worker
 
 import android.app.PendingIntent
+import android.content.ContentResolver
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
@@ -138,12 +139,17 @@ class MediaDownloadWorker @AssistedInject constructor (
                 } else {
                     null
                 }
-            if (mergedUri != null && uri != null && soundUri != null) {
-                applicationContext.contentResolver.delete(uri, null, null)
-                applicationContext.contentResolver.delete(soundUri, null, null)
-            }
+            if (mergedUri != null) {
+                // The merged file replaces the separate video and audio downloads
+                uri?.let { deleteMedia(it) }
+                soundUri?.let { deleteMedia(it) }
 
-            uri = mergedUri
+                uri = mergedUri
+            } else {
+                // The media has no soundtrack or muxing failed: keep the video-only download
+                // instead of discarding it, so the download is still reported as a success
+                soundUri?.let { deleteMedia(it) }
+            }
         }
 
         builder
@@ -352,6 +358,19 @@ class MediaDownloadWorker @AssistedInject constructor (
             ImageDecoder.decodeBitmap(source)
         } else {
             MediaStore.Images.Media.getBitmap(applicationContext.contentResolver, uri)
+        }
+    }
+
+    /**
+     * Delete a file downloaded by [downloadMedia] or [downloadMediaLegacy], which respectively
+     * return a content and a file [Uri].
+     */
+    private fun deleteMedia(uri: Uri) {
+        runCatching {
+            when (uri.scheme) {
+                ContentResolver.SCHEME_FILE -> uri.path?.let { File(it).delete() }
+                else -> applicationContext.contentResolver.delete(uri, null, null)
+            }
         }
     }
 
