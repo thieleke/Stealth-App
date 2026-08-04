@@ -388,7 +388,7 @@ class MediaViewerFragment : FullscreenBottomSheetFragment() {
         val currentPage = viewerViewModel.selectedPage.value
         val color = when (viewerViewModel.downloadStates.value[currentPage]) {
             DownloadState.DOWNLOADING -> Color.argb(255, 128, 128, 128)
-            DownloadState.DOWNLOADED -> Color.argb(255, 64, 64, 64)
+            DownloadState.DOWNLOADED -> Color.argb(255, 64, 96, 64)
             null -> Color.WHITE
         }
         binding.buttonDownload.imageTintList = ColorStateList.valueOf(color)
