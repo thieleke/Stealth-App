@@ -16,11 +16,13 @@ import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SwitchPreferenceCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.cosmos.unreddit.R
+import com.cosmos.unreddit.data.model.SavedUsersRefresh
 import com.cosmos.unreddit.data.model.preferences.ContentPreferences.PreferencesKeys
 import com.cosmos.unreddit.data.model.preferences.DataPreferences
 import com.cosmos.unreddit.data.model.preferences.DataPreferences.RedditSource.REDDIT
 import com.cosmos.unreddit.data.model.preferences.DataPreferences.RedditSource.REDDIT_SCRAP
 import com.cosmos.unreddit.data.model.preferences.DataPreferences.RedditSource.TEDDIT
+import com.cosmos.unreddit.data.model.preferences.ProfilePreferences
 import com.cosmos.unreddit.data.model.preferences.UiPreferences
 import com.cosmos.unreddit.databinding.LayoutPreferenceListBinding
 import com.cosmos.unreddit.ui.policydisclaimer.PolicyDisclaimerDialogFragment
@@ -50,6 +52,7 @@ class PreferencesFragment : PreferenceFragmentCompat() {
     private var showNsfwPreviewPreference: SwitchPreferenceCompat? = null
     private var showSpoilerPreviewPreference: SwitchPreferenceCompat? = null
     private var largePreviewPreference: SwitchPreferenceCompat? = null
+    private var savedUsersRefreshPreference: Preference? = null
     private var backupPreference: Preference? = null
     private var sourcePreference: Preference? = null
     private var privacyEnhancerPreference: Preference? = null
@@ -167,6 +170,17 @@ class PreferencesFragment : PreferenceFragmentCompat() {
             }
         }
 
+        savedUsersRefreshPreference = findPreference<Preference>(
+            ProfilePreferences.PreferencesKeys.SAVED_USERS_REFRESH.name
+        )?.apply {
+            setOnPreferenceClickListener {
+                viewModel.savedUsersRefresh.latest?.let { hours ->
+                    showSavedUsersRefreshDialog(SavedUsersRefresh.fromHours(hours).index)
+                }
+                true
+            }
+        }
+
         privacyEnhancerPreference = findPreference<Preference?>(
             DataPreferences.PreferencesKeys.PRIVACY_ENHANCER.name
         )?.apply {
@@ -271,6 +285,15 @@ class PreferencesFragment : PreferenceFragmentCompat() {
             }
 
             launch {
+                viewModel.savedUsersRefresh.collect { hours ->
+                    val refreshArray =
+                        resources.getStringArray(R.array.pref_saved_users_refresh_labels)
+                    savedUsersRefreshPreference?.summary =
+                        refreshArray.getOrNull(SavedUsersRefresh.fromHours(hours).index)
+                }
+            }
+
+            launch {
                 viewModel.redditSource.collect { value ->
                     DataPreferences.RedditSource.fromValue(value.first).let {
                         val summary = when (it) {
@@ -321,6 +344,19 @@ class PreferencesFragment : PreferenceFragmentCompat() {
         unredditApplication?.appTheme = mode
         activity?.recreate() // Recreate activity to force the change between dark and amoled
         viewModel.setNightMode(mode)
+    }
+
+    private fun showSavedUsersRefreshDialog(checkedItem: Int) {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.dialog_saved_users_refresh_title)
+            .setSingleChoiceItems(
+                R.array.pref_saved_users_refresh_labels,
+                checkedItem
+            ) { dialog, which ->
+                viewModel.setSavedUsersRefresh(SavedUsersRefresh.fromIndex(which).hours)
+                dialog.dismiss()
+            }
+            .show()
     }
 
     private fun showRedditSourceDialog(source: Int, instance: String) {

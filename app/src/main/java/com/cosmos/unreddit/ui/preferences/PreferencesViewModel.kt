@@ -38,6 +38,9 @@ class PreferencesViewModel @Inject constructor(
 
     val largePreview: Flow<Boolean> = preferencesRepository.getLargePreview()
 
+    val savedUsersRefresh: SharedFlow<Int> = preferencesRepository.getSavedUsersRefresh()
+        .shareIn(viewModelScope, SharingStarted.WhileSubscribed(), 1)
+
     val redditSource: SharedFlow<Pair<Int, String>> = combine(
         preferencesRepository.getRedditSource(),
         preferencesRepository.getRedditSourceInstance("teddit.net")
@@ -103,6 +106,12 @@ class PreferencesViewModel @Inject constructor(
     fun setLargePreview(largePreview: Boolean) {
         viewModelScope.launch {
             preferencesRepository.setLargePreview(largePreview)
+        }
+    }
+
+    fun setSavedUsersRefresh(hours: Int) {
+        viewModelScope.launch {
+            preferencesRepository.setSavedUsersRefresh(hours)
         }
     }
 

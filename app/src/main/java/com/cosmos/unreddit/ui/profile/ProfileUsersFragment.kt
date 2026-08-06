@@ -73,16 +73,26 @@ class ProfileUsersFragment : ListFragment<ConcatAdapter>() {
                     emptyData.isVisible = users.isEmpty()
                     textEmptyData.isVisible = users.isEmpty()
                 }
+                if (users.isEmpty()) {
+                    // Nothing to fetch, so no loading state will come to end a pull to refresh
+                    binding.pullRefresh.setRefreshing(false)
+                }
             }.flowWithLifecycle(viewLifecycleOwner.lifecycle, Lifecycle.State.STARTED).collect()
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.usersLoading
                 .flowWithLifecycle(viewLifecycleOwner.lifecycle, Lifecycle.State.STARTED)
-                .collect { isLoading ->
-                    binding.pullRefresh.setRefreshing(isLoading)
-                    if (!isLoading) {
-                        setRefreshTime(System.currentTimeMillis())
+                .collect { isLoading -> binding.pullRefresh.setRefreshing(isLoading) }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.usersLastRefresh
+                .flowWithLifecycle(viewLifecycleOwner.lifecycle, Lifecycle.State.STARTED)
+                .collect { lastRefresh ->
+                    // The cache makes this older than the visit, so show when the data is from
+                    if (lastRefresh > 0) {
+                        setRefreshTime(lastRefresh)
                     }
                 }
         }

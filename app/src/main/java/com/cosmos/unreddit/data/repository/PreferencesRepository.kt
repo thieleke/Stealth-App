@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
 import com.cosmos.unreddit.data.local.RedditDatabase
+import com.cosmos.unreddit.data.model.SavedUsersRefresh
 import com.cosmos.unreddit.data.model.UserSortMode
 import com.cosmos.unreddit.data.model.db.Redirect
 import com.cosmos.unreddit.data.model.preferences.ContentPreferences
@@ -217,6 +218,25 @@ class PreferencesRepository @Inject constructor(
         preferencesDatastore.setValue(
             ProfilePreferences.PreferencesKeys.SAVED_USERS_SORT,
             sortMode
+        )
+    }
+
+    /**
+     * Refresh period of the saved users timeline, in hours. See [SavedUsersRefresh].
+     */
+    fun getSavedUsersRefresh(
+        defaultValue: Int = SavedUsersRefresh.DEFAULT.hours
+    ): Flow<Int> {
+        return preferencesDatastore.getValue(
+            ProfilePreferences.PreferencesKeys.SAVED_USERS_REFRESH,
+            defaultValue
+        )
+    }
+
+    suspend fun setSavedUsersRefresh(hours: Int) {
+        preferencesDatastore.setValue(
+            ProfilePreferences.PreferencesKeys.SAVED_USERS_REFRESH,
+            hours
         )
     }
 

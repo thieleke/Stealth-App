@@ -10,6 +10,7 @@ import com.cosmos.unreddit.data.model.Sorting
 import com.cosmos.unreddit.data.model.db.History
 import com.cosmos.unreddit.data.model.db.PostEntity
 import com.cosmos.unreddit.data.model.db.Profile
+import com.cosmos.unreddit.data.model.db.SavedUserPost
 import com.cosmos.unreddit.data.model.db.Subscription
 import com.cosmos.unreddit.data.remote.api.reddit.model.AboutChild
 import com.cosmos.unreddit.data.remote.api.reddit.model.AboutUserChild
@@ -275,6 +276,40 @@ class PostListRepository @Inject constructor(
 
     fun getSavedCommentIds(profileId: Int): Flow<List<String>> {
         return redditDatabase.commentDao().getSavedCommentIdsFromProfile(profileId)
+    }
+
+    //endregion
+
+    //region Saved users
+
+    /**
+     * Cached latest post of every saved user of a profile, as fetched by
+     * [getUserLatestPosts]. See [SavedUserPost].
+     */
+    suspend fun getSavedUserPosts(profileId: Int): List<SavedUserPost> {
+        return redditDatabase.savedUserPostDao().getFromProfile(profileId)
+    }
+
+    suspend fun cacheSavedUserPost(
+        authorKey: String,
+        post: PostEntity,
+        profileId: Int,
+        fetchedAt: Long = System.currentTimeMillis()
+    ) {
+        redditDatabase.savedUserPostDao().upsert(
+            SavedUserPost(authorKey, profileId, fetchedAt, post)
+        )
+    }
+
+    /**
+     * Forgets the users of [profileId] that are not in [authorKeys], i.e. those whose posts are no
+     * longer saved. A no-op for an empty [authorKeys], as the caller then has nothing to keep and
+     * the profile's saved posts are the only thing that populates the cache.
+     */
+    suspend fun pruneSavedUserPosts(profileId: Int, authorKeys: List<String>) {
+        if (authorKeys.isEmpty()) return
+
+        redditDatabase.savedUserPostDao().deleteFromProfileExcept(profileId, authorKeys)
     }
 
     //endregion

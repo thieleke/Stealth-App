@@ -8,6 +8,12 @@
         <item>@string/preference_night_mode_system</item>
     </string-array>
 
+    <string-array name="pref_saved_users_refresh_labels">
+        <item>@string/preference_saved_users_refresh_none</item>
+        <item>@string/preference_saved_users_refresh_2_hours</item>
+        <item>@string/preference_saved_users_refresh_8_hours</item>
+    </string-array>
+
     <string-array name="pref_reddit_source_labels">
         <item>@string/preference_reddit_source_reddit</item>
         <item>@string/preference_reddit_source_teddit</item>

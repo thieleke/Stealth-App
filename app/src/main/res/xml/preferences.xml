@@ -55,6 +55,11 @@
             app:persistent="false"/>
 
         <Preference
+            app:key="saved_users_refresh"
+            app:title="@string/preference_saved_users_refresh"
+            app:persistent="false"/>
+
+        <Preference
             app:key="privacy_enhancer"
             app:title="@string/preference_privacy_enhancer"
             app:persistent="false"/>

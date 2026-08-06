@@ -6,6 +6,7 @@ import com.cosmos.unreddit.data.local.mapper.PostMapper2
 import com.cosmos.unreddit.data.local.mapper.SavedMapper2
 import com.cosmos.unreddit.data.model.Comment
 import com.cosmos.unreddit.data.model.SavedItem
+import com.cosmos.unreddit.data.model.SavedUsersRefresh
 import com.cosmos.unreddit.data.model.UserSortMode
 import com.cosmos.unreddit.data.model.db.PostEntity
 import com.cosmos.unreddit.data.model.db.Profile
@@ -29,12 +30,11 @@ import kotlinx.coroutines.flow.combineTransform
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
-import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 
 @HiltViewModel
@@ -115,78 +115,148 @@ class ProfileViewModel @Inject constructor(
         .map { UserSortMode.fromValue(it) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, UserSortMode.ALPHABETICAL)
 
-    private val userFlags: Flow<Pair<List<String>, List<String>>> = combine(
+    private val userFlags: Flow<UserFlags> = combine(
+        currentProfile,
         historyIds,
         savedPostIds
-    ) { history, saved -> history to saved }
+    ) { profile, history, saved -> UserFlags(profile.id, history.toSet(), saved.toSet()) }
 
     private val usersRefresh: MutableStateFlow<Int> = MutableStateFlow(0)
 
     /**
-     * Latest post fetched per user, keyed by lowercase username. Keeps the timeline from
-     * re-hitting the network every time the saved posts or preferences change; cleared on refresh.
+     * Refresh requests, explicit ones through [usersRefresh] and the configured period. Shortening
+     * the period refetches what it makes outdated straight away.
      */
-    private val latestPostCache = ConcurrentHashMap<String, PostEntity>()
+    private val usersRefreshTrigger: Flow<Long> = combine(
+        usersRefresh,
+        preferencesRepository.getSavedUsersRefresh()
+    ) { _, hours -> SavedUsersRefresh.fromHours(hours).period }
+
+    /**
+     * Set by [refreshUsers] and consumed once a fetch pass completes, so an interrupted refresh
+     * is picked up again by the pass that replaces it.
+     */
+    @Volatile
+    private var forceUsersRefresh: Boolean = false
 
     private val _usersLoading: MutableStateFlow<Boolean> = MutableStateFlow(false)
     val usersLoading: StateFlow<Boolean> = _usersLoading
 
     /**
+     * When the timeline rows were last fetched, or 0 when nothing is cached yet. Reflects the
+     * cache rather than the time of the last screen visit, which would otherwise claim a
+     * hours-old timeline had just been refreshed.
+     */
+    private val _usersLastRefresh: MutableStateFlow<Long> = MutableStateFlow(0)
+    val usersLastRefresh: StateFlow<Long> = _usersLastRefresh
+
+    /**
      * One row per unique author of the saved posts, each showing that user's *current* newest
-     * submission fetched from the network — a live timeline rather than the stored saved post.
-     * Falls back to the saved post when the fetch fails, so a row never disappears offline.
+     * submission — a live timeline rather than the stored saved post.
+     *
+     * Fetching that post is a request per user, so the results are cached in the database and
+     * only refetched when [refreshUsers] is called or the entry is older than the configured
+     * [SavedUsersRefresh] period. Emits twice when a fetch is needed: first the cached timeline,
+     * so the panel is usable straight away, then the updated one.
+     *
+     * Falls back to the saved post for users that have never been fetched successfully, so a row
+     * never disappears offline.
      */
     val savedUsers: Flow<List<PostEntity>> = combine(
         _savedPosts,
         contentPreferences,
         userSortMode,
         userFlags,
-        usersRefresh
-    ) { posts, preferences, sortMode, flags, _ ->
-        UsersInput(posts, preferences, sortMode, flags.first, flags.second)
-    }.mapLatest { input ->
+        usersRefreshTrigger
+    ) { posts, preferences, sortMode, flags, refreshPeriod ->
+        UsersInput(posts, preferences, sortMode, flags, refreshPeriod)
+    }.transformLatest { input ->
         val savedPerUser = getSavedUsers(input.posts, input.preferences, input.sortMode)
 
         if (savedPerUser.isEmpty()) {
-            return@mapLatest emptyList()
+            forceUsersRefresh = false
+            _usersLastRefresh.value = 0
+            emit(emptyList())
+            return@transformLatest
+        }
+
+        val (_, history, savedIds) = input.flags
+        val cache = repository.getSavedUserPosts(input.profileId).associateBy { it.authorKey }
+        val latestPosts = cache.mapValues { (_, entry) -> entry.post }
+
+        _usersLastRefresh.value = cache.values.maxOfOrNull { it.fetchedAt } ?: 0
+        emit(
+            buildTimeline(
+                savedPerUser, latestPosts, input.preferences, history, savedIds, input.sortMode
+            )
+        )
+
+        val now = System.currentTimeMillis()
+        val forced = forceUsersRefresh
+        val outdated = savedPerUser.filter {
+            forced || isOutdated(cache[it.authorKey]?.fetchedAt, now, input.refreshPeriod)
+        }
+
+        if (outdated.isEmpty()) {
+            return@transformLatest
         }
 
         _usersLoading.value = true
         try {
-            sortUsers(fetchLatestPosts(savedPerUser, input), input.sortMode)
+            val fetched = fetchLatestPosts(outdated, input, now)
+            forceUsersRefresh = false
+            repository.pruneSavedUserPosts(input.profileId, savedPerUser.map { it.authorKey })
+
+            if (fetched.isNotEmpty()) {
+                _usersLastRefresh.value = now
+                emit(
+                    buildTimeline(
+                        savedPerUser,
+                        latestPosts + fetched,
+                        input.preferences,
+                        history,
+                        savedIds,
+                        input.sortMode
+                    )
+                )
+            }
         } finally {
             _usersLoading.value = false
         }
     }.flowOn(defaultDispatcher)
 
+    /**
+     * Fetches the newest post of each of [users] and caches it, keyed by lowercase username.
+     * Users whose fetch fails are left out, and so keep whatever they were showing.
+     */
     private suspend fun fetchLatestPosts(
-        savedPerUser: List<PostEntity>,
-        input: UsersInput
-    ): List<PostEntity> = coroutineScope {
+        users: List<PostEntity>,
+        input: UsersInput,
+        fetchedAt: Long
+    ): Map<String, PostEntity> = coroutineScope {
         val semaphore = Semaphore(MAX_PARALLEL_USER_REQUESTS)
 
-        savedPerUser.map { savedPost ->
+        users.map { savedPost ->
             async {
-                val key = savedPost.author.lowercase()
-
-                val latest = latestPostCache[key] ?: runCatching {
+                val latest = runCatching {
                     semaphore.withPermit {
                         postMapper
                             .dataToEntities(repository.getUserLatestPosts(savedPost.author))
                             .firstOrNull { input.preferences.showNsfw || !it.isOver18 }
                     }
-                }.getOrNull()?.also { latestPostCache[key] = it }
+                }.getOrNull()
 
-                (latest ?: savedPost).apply {
-                    seen = input.history.contains(id)
-                    saved = input.savedIds.contains(id)
+                latest?.let {
+                    val key = savedPost.authorKey
+                    repository.cacheSavedUserPost(key, it, input.profileId, fetchedAt)
+                    key to it
                 }
             }
-        }.awaitAll()
+        }.awaitAll().filterNotNull().toMap()
     }
 
     fun refreshUsers() {
-        latestPostCache.clear()
+        forceUsersRefresh = true
         usersRefresh.value++
     }
 
@@ -203,18 +273,70 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
+    private data class UserFlags(
+        val profileId: Int,
+        val history: Set<String>,
+        val savedIds: Set<String>
+    )
+
     private data class UsersInput(
         val posts: List<PostEntity>,
         val preferences: ContentPreferences,
         val sortMode: UserSortMode,
-        val history: List<String>,
-        val savedIds: List<String>
-    )
+        val flags: UserFlags,
+        val refreshPeriod: Long
+    ) {
+        val profileId: Int get() = flags.profileId
+    }
 
     companion object {
         private const val LAST_TAB_INDEX = 1
 
         private const val MAX_PARALLEL_USER_REQUESTS = 4
+
+        /** Lowercase author, the key both the cache and the timeline are built on */
+        private val PostEntity.authorKey: String get() = author.lowercase()
+
+        /**
+         * Whether a user has to be fetched again, [fetchedAt] being null for one that never was.
+         * A [refreshPeriod] of 0, i.e. [SavedUsersRefresh.NONE], only fetches those.
+         */
+        internal fun isOutdated(fetchedAt: Long?, now: Long, refreshPeriod: Long): Boolean {
+            return when {
+                fetchedAt == null -> true
+                refreshPeriod <= 0 -> false
+                else -> now - fetchedAt >= refreshPeriod
+            }
+        }
+
+        /**
+         * The rows to display: the latest post known for each of [savedPerUser], falling back to
+         * the saved post itself for the users [latestPosts] has nothing usable for.
+         *
+         * A cached post is skipped when NSFW content is hidden but the post is over 18, which
+         * happens when the preference is turned off after the post was fetched. The row shows the
+         * saved post until the entry is refreshed.
+         */
+        internal fun buildTimeline(
+            savedPerUser: List<PostEntity>,
+            latestPosts: Map<String, PostEntity>,
+            preferences: ContentPreferences,
+            history: Set<String>,
+            savedIds: Set<String>,
+            sortMode: UserSortMode
+        ): List<PostEntity> {
+            val users = savedPerUser.map { savedPost ->
+                val latest = latestPosts[savedPost.authorKey]
+                    ?.takeIf { preferences.showNsfw || !it.isOver18 }
+
+                (latest ?: savedPost).apply {
+                    seen = history.contains(id)
+                    saved = savedIds.contains(id)
+                }
+            }
+
+            return sortUsers(users, sortMode)
+        }
 
         /**
          * Ordering of the timeline rows. Applied *after* the latest posts are fetched, so
