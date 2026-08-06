@@ -17,11 +17,15 @@ import com.cosmos.unreddit.databinding.FragmentProfileBinding
 import com.cosmos.unreddit.ui.base.BaseFragment
 import com.cosmos.unreddit.ui.common.adapter.FragmentAdapter
 import com.cosmos.unreddit.ui.profilemanager.ProfileManagerDialogFragment
+import com.cosmos.unreddit.util.PanelSwipe
+import com.cosmos.unreddit.util.PanelSwipeListener
 import com.cosmos.unreddit.util.extension.clearCommentListener
 import com.cosmos.unreddit.util.extension.clearNavigationListener
 import com.cosmos.unreddit.util.extension.getListContent
 import com.cosmos.unreddit.util.extension.getRecyclerView
 import com.cosmos.unreddit.util.extension.latest
+import com.cosmos.unreddit.util.extension.nextPage
+import com.cosmos.unreddit.util.extension.previousPage
 import com.cosmos.unreddit.util.extension.scrollToTop
 import com.cosmos.unreddit.util.extension.setCommentListener
 import com.cosmos.unreddit.util.extension.setNavigationListener
@@ -32,7 +36,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
-class ProfileFragment : BaseFragment() {
+class ProfileFragment : BaseFragment(), PanelSwipeListener {
 
     private var _binding: FragmentProfileBinding? = null
     private val binding get() = _binding!!
@@ -158,6 +162,25 @@ class ProfileFragment : BaseFragment() {
                 .collect { page ->
                     registerScrollListener(page)
                 }
+        }
+    }
+
+    /**
+     * Move between the tabs first, so that the panel only changes from the first tab when swiping
+     * left and from the last one when swiping right.
+     */
+    override fun onPanelSwipe(swipe: PanelSwipe): Boolean {
+        val viewPager = _binding?.viewPager ?: return false
+        val pageCount = viewPager.adapter?.itemCount ?: return false
+
+        return when (swipe) {
+            PanelSwipe.LEFT -> {
+                (viewPager.currentItem > 0).also { if (it) viewPager.previousPage() }
+            }
+
+            PanelSwipe.RIGHT -> {
+                (viewPager.currentItem < pageCount - 1).also { if (it) viewPager.nextPage() }
+            }
         }
     }
 

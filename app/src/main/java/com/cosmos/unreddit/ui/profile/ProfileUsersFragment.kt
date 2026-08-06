@@ -11,6 +11,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.flowWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.ConcatAdapter
+import androidx.recyclerview.widget.RecyclerView.Adapter.StateRestorationPolicy.PREVENT_WHEN_EMPTY
 import com.cosmos.unreddit.R
 import com.cosmos.unreddit.ui.common.fragment.ListFragment
 import dagger.hilt.android.AndroidEntryPoint
@@ -62,7 +63,11 @@ class ProfileUsersFragment : ListFragment<ConcatAdapter>() {
                 sortAdapter.sortMode = sortMode
                 usersAdapter.run {
                     contentPreferences = preferences
-                    submitList(users)
+                    submitList(users) {
+                        if (restoreListState(viewModel.usersListState)) {
+                            viewModel.usersListState = null
+                        }
+                    }
                 }
                 binding.loadingState.run {
                     emptyData.isVisible = users.isEmpty()
@@ -87,9 +92,18 @@ class ProfileUsersFragment : ListFragment<ConcatAdapter>() {
         viewModel.refreshUsers()
     }
 
+    override fun onDestroyView() {
+        // Keep the scroll position to restore it when coming back to the profile
+        viewModel.usersListState = saveListState()
+        super.onDestroyView()
+    }
+
     override fun createAdapter(): ConcatAdapter {
         sortAdapter = SavedUsersSortAdapter { viewModel.setUserSortMode(it) }
-        usersAdapter = ProfileUsersAdapter(this, this)
+        usersAdapter = ProfileUsersAdapter(this, this).apply {
+            // ConcatAdapter infers its own policy from its children
+            stateRestorationPolicy = PREVENT_WHEN_EMPTY
+        }
 
         return ConcatAdapter(sortAdapter, usersAdapter)
     }

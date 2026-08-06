@@ -6,14 +6,14 @@
         android:title="@string/navigation_label_home" />
 
     <item
-        android:id="@+id/subscriptions"
-        android:icon="@drawable/ic_subscriptions"
-        android:title="@string/navigation_label_subscriptions" />
-
-    <item
         android:id="@+id/profile"
         android:icon="@drawable/ic_outline_profile"
         android:title="@string/navigation_label_profile" />
+
+    <item
+        android:id="@+id/subscriptions"
+        android:icon="@drawable/ic_subscriptions"
+        android:title="@string/navigation_label_subscriptions" />
 
     <item
         android:id="@+id/settings"
