@@ -136,6 +136,7 @@
 
     <string name="empty_data">Nothing to see here…</string>
     <string name="empty_data_subscriptions">You have no subscriptions yet.\nUse the search feature to look for Subreddits.</string>
+    <string name="empty_data_users">No users from saved posts yet</string>
 
     <string name="preference_category_ui">UI</string>
     <string name="preference_category_content">CONTENT</string>
@@ -199,7 +200,13 @@
     <string name="save">Save</string>
     <string name="unsave">Unsave</string>
 
-    <string name="tab_profile_saved">Saved</string>
+    <string name="profile_title_saved">Saved</string>
+    <string name="tab_profile_saved">Posts</string>
+    <string name="tab_profile_users">Users</string>
+
+    <string name="saved_users_sort_label">Sort by</string>
+    <string name="saved_users_sort_alphabetical">Name</string>
+    <string name="saved_users_sort_chronological">Latest</string>
 
     <string name="dialog_create_profile_title">Create Profile</string>
     <string name="dialog_create_profile_button">Create</string>

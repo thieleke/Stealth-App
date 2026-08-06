@@ -5,6 +5,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.core.view.isVisible
+import androidx.recyclerview.widget.ConcatAdapter
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView.Adapter
 import androidx.recyclerview.widget.RecyclerView.Adapter.StateRestorationPolicy.PREVENT_WHEN_EMPTY
@@ -51,7 +52,10 @@ abstract class ListFragment<T : Adapter<out ViewHolder>> : BaseFragment(),
 
     protected open fun initRecyclerView() {
         adapter = createAdapter().apply {
-            stateRestorationPolicy = PREVENT_WHEN_EMPTY
+            // ConcatAdapter infers its policy from its children and throws on the setter
+            if (this !is ConcatAdapter) {
+                stateRestorationPolicy = PREVENT_WHEN_EMPTY
+            }
         }
 
         binding.listContent.apply {
