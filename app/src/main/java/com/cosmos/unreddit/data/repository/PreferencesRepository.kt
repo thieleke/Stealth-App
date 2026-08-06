@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
 import com.cosmos.unreddit.data.local.RedditDatabase
+import com.cosmos.unreddit.data.model.UserSortMode
 import com.cosmos.unreddit.data.model.db.Redirect
 import com.cosmos.unreddit.data.model.preferences.ContentPreferences
 import com.cosmos.unreddit.data.model.preferences.DataPreferences
@@ -94,6 +95,20 @@ class PreferencesRepository @Inject constructor(
         )
     }
 
+    suspend fun setLargePreview(largePreview: Boolean) {
+        preferencesDatastore.setValue(
+            ContentPreferences.PreferencesKeys.LARGE_PREVIEW,
+            largePreview
+        )
+    }
+
+    fun getLargePreview(defaultValue: Boolean = false): Flow<Boolean> {
+        return preferencesDatastore.getValue(
+            ContentPreferences.PreferencesKeys.LARGE_PREVIEW,
+            defaultValue
+        )
+    }
+
     suspend fun setRedditSource(redditSource: Int) {
         preferencesDatastore.setValue(
             DataPreferences.PreferencesKeys.REDDIT_SOURCE,
@@ -157,7 +172,9 @@ class PreferencesRepository @Inject constructor(
                 preferences[ContentPreferences.PreferencesKeys.SHOW_NSFW_PREVIEW] ?: false
             val showSpoilerPreview =
                 preferences[ContentPreferences.PreferencesKeys.SHOW_SPOILER_PREVIEW] ?: false
-            ContentPreferences(showNsfw, showNsfwPreview, showSpoilerPreview)
+            val largePreview =
+                preferences[ContentPreferences.PreferencesKeys.LARGE_PREVIEW] ?: false
+            ContentPreferences(showNsfw, showNsfwPreview, showSpoilerPreview, largePreview)
         }
     }
 
@@ -174,6 +191,33 @@ class PreferencesRepository @Inject constructor(
 
     suspend fun setCurrentProfile(profileId: Int) {
         preferencesDatastore.setValue(ProfilePreferences.PreferencesKeys.CURRENT_PROFILE, profileId)
+    }
+
+    fun getSavedLastTab(defaultValue: Int = 0): Flow<Int> {
+        return preferencesDatastore.getValue(
+            ProfilePreferences.PreferencesKeys.SAVED_LAST_TAB,
+            defaultValue
+        )
+    }
+
+    suspend fun setSavedLastTab(tab: Int) {
+        preferencesDatastore.setValue(ProfilePreferences.PreferencesKeys.SAVED_LAST_TAB, tab)
+    }
+
+    fun getSavedUsersSortMode(
+        defaultValue: Int = UserSortMode.ALPHABETICAL.value
+    ): Flow<Int> {
+        return preferencesDatastore.getValue(
+            ProfilePreferences.PreferencesKeys.SAVED_USERS_SORT,
+            defaultValue
+        )
+    }
+
+    suspend fun setSavedUsersSortMode(sortMode: Int) {
+        preferencesDatastore.setValue(
+            ProfilePreferences.PreferencesKeys.SAVED_USERS_SORT,
+            sortMode
+        )
     }
 
     //endregion

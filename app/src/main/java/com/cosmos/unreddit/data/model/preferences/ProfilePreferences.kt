@@ -7,5 +7,7 @@ data class ProfilePreferences(
 ) {
     object PreferencesKeys {
         val CURRENT_PROFILE = intPreferencesKey("current_profile")
+        val SAVED_LAST_TAB = intPreferencesKey("saved_last_tab")
+        val SAVED_USERS_SORT = intPreferencesKey("saved_users_sort")
     }
 }

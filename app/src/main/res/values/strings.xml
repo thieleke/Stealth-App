@@ -136,6 +136,7 @@
 
     <string name="empty_data">Nothing to see here…</string>
     <string name="empty_data_subscriptions">You have no subscriptions yet.\nUse the search feature to look for Subreddits.</string>
+    <string name="empty_data_users">No users from saved posts yet</string>
 
     <string name="preference_category_ui">UI</string>
     <string name="preference_category_content">CONTENT</string>
@@ -153,6 +154,8 @@
     <string name="preference_show_nsfw">Show NSFW content</string>
     <string name="preference_show_nsfw_preview">Show NSFW preview</string>
     <string name="preference_show_spoiler_preview">Show Spoiler preview</string>
+    <string name="preference_large_preview">Large previews</string>
+    <string name="preference_large_preview_summary">Double the height of image, video and text previews in post lists</string>
 
     <string name="preference_reddit_source">Reddit Source</string>
     <string name="preference_reddit_source_reddit">Reddit</string>
@@ -193,7 +196,13 @@
     <string name="save">Save</string>
     <string name="unsave">Unsave</string>
 
-    <string name="tab_profile_saved">Saved</string>
+    <string name="profile_title_saved">Saved</string>
+    <string name="tab_profile_saved">Posts</string>
+    <string name="tab_profile_users">Users</string>
+
+    <string name="saved_users_sort_label">Sort by</string>
+    <string name="saved_users_sort_alphabetical">Name</string>
+    <string name="saved_users_sort_chronological">Latest</string>
 
     <string name="dialog_create_profile_title">Create Profile</string>
     <string name="dialog_create_profile_button">Create</string>

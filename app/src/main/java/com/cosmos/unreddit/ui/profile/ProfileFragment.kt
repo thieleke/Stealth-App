@@ -28,6 +28,7 @@ import com.cosmos.unreddit.util.extension.setNavigationListener
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
@@ -63,7 +64,7 @@ class ProfileFragment : BaseFragment() {
         super.onViewCreated(view, savedInstanceState)
 
         initAppBar()
-        initViewPager()
+        initViewPager(savedInstanceState)
         bindViewModel()
 
         viewModel.layoutState?.let { binding.layoutRoot.jumpToState(it) }
@@ -92,9 +93,10 @@ class ProfileFragment : BaseFragment() {
         }
     }
 
-    private fun initViewPager() {
+    private fun initViewPager(savedInstanceState: Bundle?) {
         val fragments = listOf(
-            FragmentAdapter.Page(R.string.tab_profile_saved, ProfileSavedFragment::class.java)
+            FragmentAdapter.Page(R.string.tab_profile_saved, ProfileSavedFragment::class.java),
+            FragmentAdapter.Page(R.string.tab_profile_users, ProfileUsersFragment::class.java)
         )
 
         val fragmentAdapter = FragmentAdapter(this, fragments)
@@ -127,6 +129,18 @@ class ProfileFragment : BaseFragment() {
         TabLayoutMediator(binding.tabs, binding.viewPager) { tab, position ->
             tab.setText(fragments[position].title)
         }.attach()
+
+        // Restore the last selected tab once, on fresh creation only: on configuration change or
+        // process death ViewPager2 restores its own state and re-applying the preference would
+        // fight it
+        if (savedInstanceState == null) {
+            viewLifecycleOwner.lifecycleScope.launch {
+                val lastTab = viewModel.savedLastTab.first()
+                if (lastTab != binding.viewPager.currentItem) {
+                    binding.viewPager.setCurrentItem(lastTab, false)
+                }
+            }
+        }
     }
 
     private fun bindViewModel() {

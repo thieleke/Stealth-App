@@ -5,6 +5,7 @@ import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import com.cosmos.unreddit.data.local.RedditDatabase
 import com.cosmos.unreddit.data.model.Comment
+import com.cosmos.unreddit.data.model.Sort
 import com.cosmos.unreddit.data.model.Sorting
 import com.cosmos.unreddit.data.model.db.History
 import com.cosmos.unreddit.data.model.db.PostEntity
@@ -15,6 +16,8 @@ import com.cosmos.unreddit.data.remote.api.reddit.model.AboutUserChild
 import com.cosmos.unreddit.data.remote.api.reddit.model.Child
 import com.cosmos.unreddit.data.remote.api.reddit.model.Listing
 import com.cosmos.unreddit.data.remote.api.reddit.model.MoreChildren
+import com.cosmos.unreddit.data.remote.api.reddit.model.PostChild
+import com.cosmos.unreddit.data.remote.api.reddit.model.PostData
 import com.cosmos.unreddit.data.remote.api.reddit.source.CurrentSource
 import com.cosmos.unreddit.data.remote.datasource.CommentsDataSource
 import com.cosmos.unreddit.data.remote.datasource.SearchPostDataSource
@@ -133,6 +136,19 @@ class PostListRepository @Inject constructor(
 
     fun getUserInfo(user: String): Flow<AboutUserChild> = flow {
         emit(source.getUserInfo(user) as AboutUserChild)
+    }
+
+    /**
+     * One-shot fetch of a user's newest submissions, most recent first. Used by the saved Users
+     * timeline, which shows a single current post per user rather than a paged list.
+     */
+    suspend fun getUserLatestPosts(user: String, limit: Int = USER_LATEST_LIMIT): List<PostData> {
+        return source.getUserPosts(user, Sort.NEW, null, null)
+            .data
+            .children
+            .filterIsInstance<PostChild>()
+            .take(limit)
+            .map { it.data }
     }
 
     //endregion
@@ -265,5 +281,8 @@ class PostListRepository @Inject constructor(
 
     companion object {
         private const val DEFAULT_LIMIT = 25
+
+        // Enough to skip over posts hidden by the NSFW preference without paging
+        private const val USER_LATEST_LIMIT = 10
     }
 }
