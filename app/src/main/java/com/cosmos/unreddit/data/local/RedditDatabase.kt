@@ -10,12 +10,14 @@ import com.cosmos.unreddit.data.local.dao.HistoryDao
 import com.cosmos.unreddit.data.local.dao.PostDao
 import com.cosmos.unreddit.data.local.dao.ProfileDao
 import com.cosmos.unreddit.data.local.dao.RedirectDao
+import com.cosmos.unreddit.data.local.dao.SavedUserPostDao
 import com.cosmos.unreddit.data.local.dao.SubscriptionDao
 import com.cosmos.unreddit.data.model.Comment
 import com.cosmos.unreddit.data.model.db.History
 import com.cosmos.unreddit.data.model.db.PostEntity
 import com.cosmos.unreddit.data.model.db.Profile
 import com.cosmos.unreddit.data.model.db.Redirect
+import com.cosmos.unreddit.data.model.db.SavedUserPost
 import com.cosmos.unreddit.data.model.db.Subscription
 
 @Database(
@@ -25,9 +27,10 @@ import com.cosmos.unreddit.data.model.db.Subscription
         Profile::class,
         PostEntity::class,
         Comment.CommentEntity::class,
-        Redirect::class
+        Redirect::class,
+        SavedUserPost::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -44,6 +47,8 @@ abstract class RedditDatabase : RoomDatabase() {
     abstract fun commentDao(): CommentDao
 
     abstract fun redirectDao(): RedirectDao
+
+    abstract fun savedUserPostDao(): SavedUserPostDao
 
     class Callback : RoomDatabase.Callback() {
         override fun onCreate(db: SupportSQLiteDatabase) {
@@ -183,6 +188,49 @@ abstract class RedditDatabase : RoomDatabase() {
                         PRIMARY KEY(`service`)
                     )
                     """.trimIndent())
+            }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `saved_user_post` (
+                        `author_key` TEXT NOT NULL,
+                        `profile_id` INTEGER NOT NULL,
+                        `fetched_at` INTEGER NOT NULL,
+                        `post_id` TEXT NOT NULL,
+                        `post_subreddit` TEXT NOT NULL,
+                        `post_title` TEXT NOT NULL,
+                        `post_ratio` INTEGER NOT NULL,
+                        `post_total_awards` INTEGER NOT NULL,
+                        `post_oc` INTEGER NOT NULL,
+                        `post_score` TEXT NOT NULL,
+                        `post_type` INTEGER NOT NULL,
+                        `post_domain` TEXT NOT NULL,
+                        `post_self` INTEGER NOT NULL,
+                        `post_self_text_html` TEXT,
+                        `post_suggested_sorting` TEXT NOT NULL,
+                        `post_nsfw` INTEGER NOT NULL,
+                        `post_preview` TEXT,
+                        `post_spoiler` INTEGER NOT NULL,
+                        `post_archived` INTEGER NOT NULL,
+                        `post_locked` INTEGER NOT NULL,
+                        `post_poster_type` INTEGER NOT NULL,
+                        `post_author` TEXT NOT NULL,
+                        `post_comments_number` TEXT NOT NULL,
+                        `post_permalink` TEXT NOT NULL,
+                        `post_stickied` INTEGER NOT NULL,
+                        `post_url` TEXT NOT NULL,
+                        `post_created` INTEGER NOT NULL,
+                        `post_media_type` TEXT NOT NULL,
+                        `post_media_url` TEXT NOT NULL,
+                        `post_time` INTEGER NOT NULL,
+                        `post_profile_id` INTEGER NOT NULL,
+                    PRIMARY KEY(`author_key`, `profile_id`),
+                    FOREIGN KEY(`profile_id`) REFERENCES `profile`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                    """.trimIndent())
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_saved_user_post_profile_id` ON `saved_user_post` (`profile_id`)")
             }
         }
     }

@@ -40,6 +40,9 @@ class PreferencesViewModel @Inject constructor(
 
     val downloadFilenameAuthor: Flow<Boolean> = preferencesRepository.getDownloadFilenameAuthor()
 
+    val savedUsersRefresh: SharedFlow<Int> = preferencesRepository.getSavedUsersRefresh()
+        .shareIn(viewModelScope, SharingStarted.WhileSubscribed(), 1)
+
     val redditSource: SharedFlow<Pair<Int, String>> = combine(
         preferencesRepository.getRedditSource(),
         preferencesRepository.getRedditSourceInstance("teddit.net")
@@ -111,6 +114,12 @@ class PreferencesViewModel @Inject constructor(
     fun setDownloadFilenameAuthor(downloadFilenameAuthor: Boolean) {
         viewModelScope.launch {
             preferencesRepository.setDownloadFilenameAuthor(downloadFilenameAuthor)
+        }
+    }
+
+    fun setSavedUsersRefresh(hours: Int) {
+        viewModelScope.launch {
+            preferencesRepository.setSavedUsersRefresh(hours)
         }
     }
 

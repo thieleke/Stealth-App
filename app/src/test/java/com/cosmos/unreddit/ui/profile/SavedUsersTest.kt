@@ -3,13 +3,17 @@ package com.cosmos.unreddit.ui.profile
 import com.cosmos.unreddit.data.model.MediaType
 import com.cosmos.unreddit.data.model.PostType
 import com.cosmos.unreddit.data.model.PosterType
+import com.cosmos.unreddit.data.model.SavedUsersRefresh
 import com.cosmos.unreddit.data.model.Sort
 import com.cosmos.unreddit.data.model.Sorting
 import com.cosmos.unreddit.data.model.UserSortMode
 import com.cosmos.unreddit.data.model.db.PostEntity
 import com.cosmos.unreddit.data.model.preferences.ContentPreferences
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.concurrent.TimeUnit
 
 class SavedUsersTest {
 
@@ -134,8 +138,109 @@ class SavedUsersTest {
     }
 
     @Test
+    fun `timeline shows the cached post and falls back to the saved one`() {
+        val savedPerUser = listOf(
+            post(id = "saved-alice", author = "Alice", time = 100),
+            post(id = "saved-bob", author = "bob", time = 200)
+        )
+        // Only alice has been fetched, and under her lowercase key
+        val latestPosts = mapOf("alice" to post(id = "latest-alice", author = "Alice", time = -1))
+
+        val timeline = buildTimeline(savedPerUser, latestPosts)
+
+        assertEquals(listOf("latest-alice", "saved-bob"), timeline.map { it.id })
+    }
+
+    @Test
+    fun `cached nsfw post is skipped when showNsfw is turned off`() {
+        val savedPerUser = listOf(post(id = "saved-alice", author = "alice", time = 100))
+        val latestPosts = mapOf(
+            "alice" to post(id = "latest-alice", author = "alice", time = -1, isOver18 = true)
+        )
+
+        assertEquals(
+            listOf("latest-alice"),
+            buildTimeline(savedPerUser, latestPosts, showNsfw = true).map { it.id }
+        )
+        assertEquals(
+            listOf("saved-alice"),
+            buildTimeline(savedPerUser, latestPosts, showNsfw = false).map { it.id }
+        )
+    }
+
+    @Test
+    fun `timeline flags the rows as seen and saved`() {
+        val savedPerUser = listOf(
+            post(id = "saved-alice", author = "alice", time = 100),
+            post(id = "saved-bob", author = "bob", time = 200)
+        )
+        val latestPosts = mapOf("alice" to post(id = "latest-alice", author = "alice", time = -1))
+
+        val timeline = buildTimeline(
+            savedPerUser,
+            latestPosts,
+            history = setOf("latest-alice"),
+            savedIds = setOf("saved-bob")
+        )
+
+        assertEquals(listOf(true, false), timeline.map { it.seen })
+        assertEquals(listOf(false, true), timeline.map { it.saved })
+    }
+
+    @Test
+    fun `a user that has never been fetched is always outdated`() {
+        assertTrue(ProfileViewModel.isOutdated(null, NOW, EIGHT_HOURS))
+        // Even with automatic refreshes off
+        assertTrue(ProfileViewModel.isOutdated(null, NOW, 0))
+    }
+
+    @Test
+    fun `a fetched user is outdated once the refresh period has passed`() {
+        assertFalse(ProfileViewModel.isOutdated(NOW - EIGHT_HOURS + 1, NOW, EIGHT_HOURS))
+        assertTrue(ProfileViewModel.isOutdated(NOW - EIGHT_HOURS, NOW, EIGHT_HOURS))
+
+        // The same entry under a shorter period
+        assertTrue(ProfileViewModel.isOutdated(NOW - EIGHT_HOURS + 1, NOW, TWO_HOURS))
+    }
+
+    @Test
+    fun `a fetched user is never outdated when automatic refreshes are off`() {
+        assertFalse(ProfileViewModel.isOutdated(0, NOW, 0))
+    }
+
+    @Test
+    fun `refresh periods match their labels`() {
+        assertEquals(0L, SavedUsersRefresh.NONE.period)
+        assertEquals(TWO_HOURS, SavedUsersRefresh.TWO_HOURS.period)
+        assertEquals(EIGHT_HOURS, SavedUsersRefresh.EIGHT_HOURS.period)
+
+        assertEquals(SavedUsersRefresh.EIGHT_HOURS, SavedUsersRefresh.DEFAULT)
+        // An unknown stored value falls back to the default rather than to no refresh at all
+        assertEquals(SavedUsersRefresh.DEFAULT, SavedUsersRefresh.fromHours(3))
+        assertEquals(SavedUsersRefresh.TWO_HOURS, SavedUsersRefresh.fromHours(2))
+        assertEquals(SavedUsersRefresh.NONE, SavedUsersRefresh.fromIndex(0))
+    }
+
+    @Test
     fun `no saved posts yields no users`() {
         assertEquals(emptyList<PostEntity>(), getSavedUsers(emptyList(), UserSortMode.ALPHABETICAL))
+    }
+
+    private fun buildTimeline(
+        savedPerUser: List<PostEntity>,
+        latestPosts: Map<String, PostEntity>,
+        showNsfw: Boolean = true,
+        history: Set<String> = emptySet(),
+        savedIds: Set<String> = emptySet()
+    ): List<PostEntity> {
+        return ProfileViewModel.buildTimeline(
+            savedPerUser,
+            latestPosts,
+            contentPreferences(showNsfw),
+            history,
+            savedIds,
+            UserSortMode.ALPHABETICAL
+        )
     }
 
     private fun getSavedUsers(
@@ -143,15 +248,15 @@ class SavedUsersTest {
         sortMode: UserSortMode,
         showNsfw: Boolean = true
     ): List<PostEntity> {
-        return ProfileViewModel.getSavedUsers(
-            posts,
-            ContentPreferences(
-                showNsfw = showNsfw,
-                showNsfwPreview = false,
-                showSpoilerPreview = false,
-                largePreview = false
-            ),
-            sortMode
+        return ProfileViewModel.getSavedUsers(posts, contentPreferences(showNsfw), sortMode)
+    }
+
+    private fun contentPreferences(showNsfw: Boolean): ContentPreferences {
+        return ContentPreferences(
+            showNsfw = showNsfw,
+            showNsfwPreview = false,
+            showSpoilerPreview = false,
+            largePreview = false
         )
     }
 
@@ -191,5 +296,12 @@ class SavedUsersTest {
             mediaUrl = "",
             time = time
         )
+    }
+
+    companion object {
+        private val TWO_HOURS = TimeUnit.HOURS.toMillis(2)
+        private val EIGHT_HOURS = TimeUnit.HOURS.toMillis(8)
+
+        private val NOW = TimeUnit.DAYS.toMillis(20000)
     }
 }

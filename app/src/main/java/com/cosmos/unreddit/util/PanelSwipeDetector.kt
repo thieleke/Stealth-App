@@ -6,6 +6,7 @@ import android.view.VelocityTracker
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
+import androidx.viewpager2.widget.ViewPager2
 import kotlin.math.abs
 
 /**
@@ -98,6 +99,10 @@ class PanelSwipeDetector(
      * horizontally towards [direction], negative being towards the start of the content.
      */
     private fun canScrollHorizontally(view: View, x: Float, y: Float, direction: Int): Boolean {
+        // A pager that takes no user input keeps its pages in place, yet still reports its content
+        // as scrollable, which would swallow the swipe
+        if (view is ViewPager2 && !view.isUserInputEnabled) return false
+
         if (view is ViewGroup) {
             val childX = x + view.scrollX
             val childY = y + view.scrollY

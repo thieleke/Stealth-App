@@ -128,6 +128,8 @@
     <string name="dialog_credit_show_website">Show Website</string>
     <string name="dialog_credit_show_license">Show License</string>
 
+    <string name="dialog_saved_users_refresh_title">Saved users refresh</string>
+
     <string name="dialog_reddit_source_title">Reddit Source</string>
 
     <string name="dialog_reddit_source_disclaimer_title">Disclaimer</string>
@@ -165,6 +167,11 @@
     <string name="preference_reddit_source_reddit">Reddit</string>
     <string name="preference_reddit_source_reddit_scrap">Reddit (Web Scraping)</string>
     <string name="preference_reddit_source_teddit">Teddit</string>
+
+    <string name="preference_saved_users_refresh">Saved users refresh</string>
+    <string name="preference_saved_users_refresh_none">None</string>
+    <string name="preference_saved_users_refresh_2_hours">Every 2 hours</string>
+    <string name="preference_saved_users_refresh_8_hours">Every 8 hours</string>
 
     <string name="preference_backup">Import/Export</string>
 
