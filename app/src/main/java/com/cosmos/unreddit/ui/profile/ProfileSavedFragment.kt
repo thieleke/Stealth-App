@@ -57,7 +57,11 @@ class ProfileSavedFragment : ListFragment<ProfileSavedAdapter>(),
             combine(viewModel.savedItems, viewModel.contentPreferences) { items, preferences ->
                 adapter.run {
                     contentPreferences = preferences
-                    submitList(items)
+                    submitList(items) {
+                        if (restoreListState(viewModel.savedListState)) {
+                            viewModel.savedListState = null
+                        }
+                    }
                     binding.loadingState.run {
                         emptyData.isVisible = items.isEmpty()
                         textEmptyData.isVisible = items.isEmpty()
@@ -87,6 +91,12 @@ class ProfileSavedFragment : ListFragment<ProfileSavedAdapter>(),
             comment,
             CommentMenuFragment.MenuType.DETAILS
         )
+    }
+
+    override fun onDestroyView() {
+        // Keep the scroll position to restore it when coming back to the profile
+        viewModel.savedListState = saveListState()
+        super.onDestroyView()
     }
 
     override fun createAdapter(): ProfileSavedAdapter {

@@ -1,6 +1,7 @@
 package com.cosmos.unreddit.ui.common.fragment
 
 import android.os.Bundle
+import android.os.Parcelable
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -68,6 +69,29 @@ abstract class ListFragment<T : Adapter<out ViewHolder>> : BaseFragment(),
         }
 
         binding.pullRefresh.setOnRefreshListener(this)
+    }
+
+    /**
+     * @return the scroll state of the list, to give back to [restoreListState] once the list is
+     * populated again
+     */
+    protected fun saveListState(): Parcelable? {
+        return _binding?.listContent?.layoutManager?.onSaveInstanceState()
+    }
+
+    /**
+     * Restores the scroll state of the list, provided it has content to scroll.
+     *
+     * @return true when the state was restored and can be discarded
+     */
+    protected fun restoreListState(state: Parcelable?): Boolean {
+        val layoutManager = _binding?.listContent?.layoutManager ?: return false
+
+        if (state == null || adapter.itemCount == 0) return false
+
+        layoutManager.onRestoreInstanceState(state)
+
+        return true
     }
 
     protected fun setRefreshTime(timeInMillis: Long) {

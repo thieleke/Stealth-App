@@ -1,5 +1,6 @@
 package com.cosmos.unreddit.ui.profile
 
+import android.os.Parcelable
 import androidx.lifecycle.viewModelScope
 import com.cosmos.unreddit.data.local.mapper.PostMapper2
 import com.cosmos.unreddit.data.local.mapper.SavedMapper2
@@ -51,6 +52,13 @@ class ProfileViewModel @Inject constructor(
     val page: StateFlow<Int> get() = _page
 
     var layoutState: Int? = null
+
+    /**
+     * Scroll state of the list of each tab, kept while the fragment views are destroyed, e.g. when
+     * navigating to a user or a subreddit
+     */
+    var savedListState: Parcelable? = null
+    var usersListState: Parcelable? = null
 
     private val _savedPosts: Flow<List<PostEntity>> = currentProfile.flatMapLatest {
         repository.getSavedPosts(it.id)

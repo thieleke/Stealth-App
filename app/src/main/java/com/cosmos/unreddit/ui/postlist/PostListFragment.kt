@@ -31,6 +31,8 @@ import com.cosmos.unreddit.ui.common.widget.PullToRefreshView
 import com.cosmos.unreddit.ui.loadstate.NetworkLoadStateAdapter
 import com.cosmos.unreddit.ui.sort.SortFragment
 import com.cosmos.unreddit.util.DateUtil
+import com.cosmos.unreddit.util.PanelSwipe
+import com.cosmos.unreddit.util.PanelSwipeListener
 import com.cosmos.unreddit.util.extension.applyMarginWindowInsets
 import com.cosmos.unreddit.util.extension.applyWindowInsets
 import com.cosmos.unreddit.util.extension.betterSmoothScrollToPosition
@@ -50,7 +52,8 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
-class PostListFragment : BaseFragment(), PullToRefreshLayout.OnRefreshListener {
+class PostListFragment : BaseFragment(), PullToRefreshLayout.OnRefreshListener,
+    PanelSwipeListener {
 
     private var _binding: FragmentPostBinding? = null
     private val binding get() = _binding!!
@@ -373,6 +376,26 @@ class PostListFragment : BaseFragment(), PullToRefreshLayout.OnRefreshListener {
             }
             .setCancelable(false)
             .show()
+    }
+
+    override fun onPanelSwipe(swipe: PanelSwipe): Boolean {
+        _binding ?: return false
+
+        return when {
+            // Swiping right closes the profile chooser and shows the post list back
+            isDrawerOpen -> {
+                if (swipe == PanelSwipe.RIGHT) closeProfileDrawer()
+                true
+            }
+
+            // Home is the first panel, so show the profile chooser instead
+            swipe == PanelSwipe.LEFT -> {
+                openProfileDrawer()
+                true
+            }
+
+            else -> false
+        }
     }
 
     override fun onRefresh() {

@@ -2,8 +2,10 @@ package com.cosmos.unreddit
 
 import android.os.Bundle
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.ViewGroup
 import androidx.activity.viewModels
+import androidx.annotation.IdRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.content.ContextCompat
@@ -11,6 +13,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updateLayoutParams
+import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavDestination
@@ -22,7 +25,13 @@ import com.cosmos.unreddit.MainActivity.BottomNavigationState.RIGHT_HANDED
 import com.cosmos.unreddit.databinding.ActivityMainBinding
 import com.cosmos.unreddit.ui.policydisclaimer.PolicyDisclaimerDialogFragment
 import com.cosmos.unreddit.ui.postlist.PostListFragment
+import com.cosmos.unreddit.ui.preferences.PreferencesFragment
+import com.cosmos.unreddit.ui.profile.ProfileFragment
+import com.cosmos.unreddit.ui.subscriptions.SubscriptionsFragment
 import com.cosmos.unreddit.util.HideBottomViewBehavior
+import com.cosmos.unreddit.util.PanelSwipe
+import com.cosmos.unreddit.util.PanelSwipeDetector
+import com.cosmos.unreddit.util.PanelSwipeListener
 import com.cosmos.unreddit.util.extension.clearWindowInsetsListener
 import com.cosmos.unreddit.util.extension.currentNavigationFragment
 import com.cosmos.unreddit.util.extension.isPast
@@ -51,6 +60,27 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
 
     private var policyDisclaimerSnackbar: Snackbar? = null
 
+    private var panelSwipeDetector: PanelSwipeDetector? = null
+
+    /**
+     * Topmost fragment of the navigation host, which is not the current navigation destination when
+     * a fragment is added on top of it (post details for instance).
+     */
+    private val topFragment: Fragment?
+        get() = supportFragmentManager.findFragmentById(R.id.fragment_container)
+            ?.childFragmentManager
+            ?.fragments
+            ?.lastOrNull()
+
+    private val currentPanel: Panel?
+        get() = when (topFragment) {
+            is PostListFragment -> Panel.HOME
+            is ProfileFragment -> Panel.SAVED
+            is SubscriptionsFragment -> Panel.SUBSCRIPTIONS
+            is PreferencesFragment -> Panel.SETTINGS
+            else -> null
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         setTheme(unredditApplication.appTheme)
         super.onCreate(savedInstanceState)
@@ -61,6 +91,8 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
         setContentView(binding.root)
 
         initNavigation()
+
+        panelSwipeDetector = PanelSwipeDetector(this, binding.root, this::onPanelSwipe)
 
         launchRepeat(Lifecycle.State.STARTED) {
             launch {
@@ -110,6 +142,29 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
                 }
             }
         }
+    }
+
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        panelSwipeDetector?.onTouchEvent(event)
+        return super.dispatchTouchEvent(event)
+    }
+
+    /**
+     * Move to the panel next to the current one, unless the current fragment handles the swipe
+     * itself.
+     */
+    private fun onPanelSwipe(swipe: PanelSwipe) {
+        val panel = currentPanel ?: return
+
+        if ((topFragment as? PanelSwipeListener)?.onPanelSwipe(swipe) == true) return
+
+        val panels = Panel.values()
+        val target = when (swipe) {
+            PanelSwipe.LEFT -> panels.getOrNull(panel.ordinal - 1)
+            PanelSwipe.RIGHT -> panels.getOrNull(panel.ordinal + 1)
+        } ?: return
+
+        binding.bottomNavigation.selectedItemId = target.itemId
     }
 
     private fun initBottomNavigationView(leftHandedMode: Boolean) {
@@ -229,10 +284,19 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
         super.onDestroy()
         policyDisclaimerSnackbar = null
         bottomNavigationState = NOT_INITIALIZED
+        panelSwipeDetector = null
     }
 
     private enum class BottomNavigationState {
         NOT_INITIALIZED, RIGHT_HANDED, LEFT_HANDED
+    }
+
+    /** Main panels, in the order they appear in the bottom navigation */
+    private enum class Panel(@IdRes val itemId: Int) {
+        HOME(R.id.home),
+        SAVED(R.id.profile),
+        SUBSCRIPTIONS(R.id.subscriptions),
+        SETTINGS(R.id.settings)
     }
 
     companion object {
