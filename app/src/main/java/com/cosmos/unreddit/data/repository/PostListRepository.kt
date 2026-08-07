@@ -143,16 +143,23 @@ class PostListRepository @Inject constructor(
      * One-shot fetch of a user's newest submissions, most recent first. Used by the saved Users
      * timeline, which shows a single current post per user rather than a paged list.
      *
-     * [limit] is passed to the API to keep the response small; sources that cannot honor it
-     * (web scraping) return their full page, so it is applied again client-side.
+     * [Sort.NEW] is only a request. The official JSON source honors it, but the scraping and
+     * Teddit sources return the page as their own backend sorted it, which for a user page is the
+     * default (hot) listing — whose first entry is a popular post rather than the latest one. The
+     * order is therefore imposed here instead of being taken on trust.
+     *
+     * For the same reason [limit] is applied *after* sorting: it is passed to the API to keep the
+     * response small, but a source that cannot honor it returns its full page, and truncating
+     * that page first would throw away the newest post before it was ever considered.
      */
     suspend fun getUserLatestPosts(user: String, limit: Int = USER_LATEST_LIMIT): List<PostData> {
         return source.getUserPosts(user, Sort.NEW, null, null, limit)
             .data
             .children
             .filterIsInstance<PostChild>()
-            .take(limit)
             .map { it.data }
+            .sortedByDescending { it.created }
+            .take(limit)
     }
 
     //endregion
