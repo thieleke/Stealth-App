@@ -16,7 +16,7 @@ abstract class SavedUserPostDao : BaseDao<SavedUserPost> {
      */
     @Query(
         "DELETE FROM saved_user_post WHERE profile_id = :profileId " +
-                "AND author_key NOT IN (:authorKeys)"
+                "AND author_key IN (:authorKeys)"
     )
-    abstract suspend fun deleteFromProfileExcept(profileId: Int, authorKeys: List<String>)
+    abstract suspend fun deleteFromProfile(profileId: Int, authorKeys: List<String>)
 }

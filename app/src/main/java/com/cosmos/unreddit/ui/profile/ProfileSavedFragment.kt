@@ -58,6 +58,7 @@ class ProfileSavedFragment : ListFragment<ProfileSavedAdapter>(),
                 adapter.run {
                     contentPreferences = preferences
                     submitList(items) {
+                        ensureLayoutPass()
                         if (restoreListState(viewModel.savedListState)) {
                             viewModel.savedListState = null
                         }

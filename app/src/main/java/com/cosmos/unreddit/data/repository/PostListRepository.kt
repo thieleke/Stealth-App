@@ -305,14 +305,17 @@ class PostListRepository @Inject constructor(
     }
 
     /**
-     * Forgets the users of [profileId] that are not in [authorKeys], i.e. those whose posts are no
-     * longer saved. A no-op for an empty [authorKeys], as the caller then has nothing to keep and
-     * the profile's saved posts are the only thing that populates the cache.
+     * Forgets the cached posts of [authorKeys] for [profileId], i.e. the users whose posts are no
+     * longer saved.
+     *
+     * Takes the users to drop rather than the ones to keep: a profile can have far more saved
+     * users than stale entries, and every key here becomes a bound variable. Chunked for the same
+     * reason — SQLite refuses a statement with more than 999 of them.
      */
-    suspend fun pruneSavedUserPosts(profileId: Int, authorKeys: List<String>) {
-        if (authorKeys.isEmpty()) return
-
-        redditDatabase.savedUserPostDao().deleteFromProfileExcept(profileId, authorKeys)
+    suspend fun pruneSavedUserPosts(profileId: Int, authorKeys: Collection<String>) {
+        authorKeys.chunked(MAX_SQL_VARIABLES).forEach { chunk ->
+            redditDatabase.savedUserPostDao().deleteFromProfile(profileId, chunk)
+        }
     }
 
     //endregion
@@ -322,5 +325,9 @@ class PostListRepository @Inject constructor(
 
         // Enough to skip over posts hidden by the NSFW preference without paging
         private const val USER_LATEST_LIMIT = 10
+
+        // SQLite rejects a statement binding more variables than this, minus the ones the query
+        // itself uses
+        private const val MAX_SQL_VARIABLES = 900
     }
 }

@@ -17,6 +17,7 @@ import com.cosmos.unreddit.di.DispatchersModule.DefaultDispatcher
 import com.cosmos.unreddit.ui.base.BaseViewModel
 import com.cosmos.unreddit.util.extension.updateValue
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -35,6 +36,7 @@ import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 
 @HiltViewModel
@@ -139,6 +141,21 @@ class ProfileViewModel @Inject constructor(
     @Volatile
     private var forceUsersRefresh: Boolean = false
 
+    /**
+     * When the last fetch of a user failed, keyed by lowercase username.
+     *
+     * A user whose fetch fails — deleted, suspended, renamed, or simply unreachable — never makes
+     * it into the database cache, so [isOutdated] would report them as outdated forever and every
+     * single pass would go back to the network for them. That is one wasted request per failing
+     * user per pass, which is what hurts once a profile has a lot of saved users.
+     *
+     * Deliberately in memory rather than in the cache table: a failure must not be allowed to
+     * freeze a user on their saved post across restarts, and it is worth retrying a user whose
+     * fetch failed because the network was down. Cleared by [refreshUsers], so a pull to refresh
+     * always retries everyone.
+     */
+    private val failedUserFetches = ConcurrentHashMap<String, Long>()
+
     private val _usersLoading: MutableStateFlow<Boolean> = MutableStateFlow(false)
     val usersLoading: StateFlow<Boolean> = _usersLoading
 
@@ -193,9 +210,25 @@ class ProfileViewModel @Inject constructor(
 
         val now = System.currentTimeMillis()
         val forced = forceUsersRefresh
-        val outdated = savedPerUser.filter {
-            forced || isOutdated(cache[it.authorKey]?.fetchedAt, now, input.refreshPeriod)
+        val outdated = savedPerUser.filter { savedPost ->
+            val key = savedPost.authorKey
+            when {
+                forced -> true
+                // A user whose fetch just failed is left alone until the period is up, rather
+                // than retried on every pass
+                !isOutdated(failedUserFetches[key], now, input.refreshPeriod) -> false
+                else -> isOutdated(cache[key]?.fetchedAt, now, input.refreshPeriod)
+            }
         }
+
+        // Users whose posts are no longer saved: drop what is cached for them. Computed from the
+        // cache rather than passing every current author to the query, which would bind one
+        // variable per saved user and blow SQLite's limit on a large profile
+        repository.pruneSavedUserPosts(
+            input.profileId,
+            cache.keys - savedPerUser.mapTo(mutableSetOf()) { it.authorKey }
+        )
+        failedUserFetches.keys.retainAll(savedPerUser.mapTo(mutableSetOf()) { it.authorKey })
 
         if (outdated.isEmpty()) {
             return@transformLatest
@@ -205,7 +238,6 @@ class ProfileViewModel @Inject constructor(
         try {
             val fetched = fetchLatestPosts(outdated, input, now)
             forceUsersRefresh = false
-            repository.pruneSavedUserPosts(input.profileId, savedPerUser.map { it.authorKey })
 
             if (fetched.isNotEmpty()) {
                 _usersLastRefresh.value = now
@@ -227,7 +259,11 @@ class ProfileViewModel @Inject constructor(
 
     /**
      * Fetches the newest post of each of [users] and caches it, keyed by lowercase username.
-     * Users whose fetch fails are left out, and so keep whatever they were showing.
+     *
+     * A user can fail for reasons that are not going to sort themselves out — deleted, suspended,
+     * renamed — as well as for a network blip, and neither must take the whole pass down with it.
+     * Those users are left out of the result, so they keep showing their saved post, and are
+     * remembered in [failedUserFetches] so the next pass does not immediately try them again.
      */
     private suspend fun fetchLatestPosts(
         users: List<PostEntity>,
@@ -238,7 +274,9 @@ class ProfileViewModel @Inject constructor(
 
         users.map { savedPost ->
             async {
-                val latest = runCatching {
+                val key = savedPost.authorKey
+
+                val latest = try {
                     semaphore.withPermit {
                         // Filter on the raw data and map only the kept post: mapping parses the
                         // selftext HTML, too costly for posts that are thrown away
@@ -246,12 +284,21 @@ class ProfileViewModel @Inject constructor(
                             .firstOrNull { input.preferences.showNsfw || !it.isOver18 }
                             ?.let { postMapper.dataToEntity(it) }
                     }
-                }.getOrNull()
+                } catch (e: CancellationException) {
+                    // The pass is being replaced by a newer one; not a failure of this user
+                    throw e
+                } catch (e: Exception) {
+                    null
+                }
 
-                latest?.let {
-                    val key = savedPost.authorKey
-                    repository.cacheSavedUserPost(key, it, input.profileId, fetchedAt)
-                    key to it
+                if (latest == null) {
+                    // Also covers a user whose account is there but has no post to show
+                    failedUserFetches[key] = fetchedAt
+                    null
+                } else {
+                    failedUserFetches.remove(key)
+                    repository.cacheSavedUserPost(key, latest, input.profileId, fetchedAt)
+                    key to latest
                 }
             }
         }.awaitAll().filterNotNull().toMap()
@@ -259,6 +306,8 @@ class ProfileViewModel @Inject constructor(
 
     fun refreshUsers() {
         forceUsersRefresh = true
+        // An explicit refresh retries the users that failed, however recently
+        failedUserFetches.clear()
         usersRefresh.value++
     }
 

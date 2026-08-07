@@ -222,6 +222,31 @@ class SavedUsersTest {
     }
 
     @Test
+    fun `a user whose post cannot be fetched keeps its saved post as its row`() {
+        // Deleted, suspended or simply unreachable: nothing is cached under their key
+        val savedPerUser = listOf(
+            post(id = "saved-gone", author = "gone", time = 100),
+            post(id = "saved-alice", author = "alice", time = 200)
+        )
+        val latestPosts = mapOf("alice" to post(id = "latest-alice", author = "alice", time = -1))
+
+        val timeline = buildTimeline(savedPerUser, latestPosts)
+
+        assertEquals(listOf("latest-alice", "saved-gone"), timeline.map { it.id })
+        assertEquals(listOf("alice", "gone"), timeline.map { it.author })
+    }
+
+    @Test
+    fun `a user whose fetch just failed is not retried before the period is up`() {
+        // A failure is not cached, so without the back-off isOutdated would keep saying yes and
+        // every pass would go back to the network for that user
+        assertFalse(ProfileViewModel.isOutdated(NOW - TWO_HOURS + 1, NOW, EIGHT_HOURS))
+        assertTrue(ProfileViewModel.isOutdated(NOW - EIGHT_HOURS, NOW, EIGHT_HOURS))
+        // Never attempted in this session, so nothing is holding it back
+        assertTrue(ProfileViewModel.isOutdated(null, NOW, EIGHT_HOURS))
+    }
+
+    @Test
     fun `no saved posts yields no users`() {
         assertEquals(emptyList<PostEntity>(), getSavedUsers(emptyList(), UserSortMode.ALPHABETICAL))
     }

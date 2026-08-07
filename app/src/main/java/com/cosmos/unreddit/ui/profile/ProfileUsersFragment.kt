@@ -64,6 +64,7 @@ class ProfileUsersFragment : ListFragment<ConcatAdapter>() {
                 usersAdapter.run {
                     contentPreferences = preferences
                     submitList(users) {
+                        ensureLayoutPass()
                         if (restoreListState(viewModel.usersListState)) {
                             viewModel.usersListState = null
                         }

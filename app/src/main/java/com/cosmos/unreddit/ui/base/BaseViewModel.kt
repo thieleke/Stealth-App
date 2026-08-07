@@ -12,6 +12,7 @@ import com.cosmos.unreddit.util.extension.latest
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.shareIn
@@ -22,9 +23,13 @@ open class BaseViewModel(
     private val postListRepository: PostListRepository
 ) : ViewModel() {
 
+    /**
+     * Deduplicated: several flows key their Room queries off this through `flatMapLatest`, and a
+     * re-emission of the same profile would cancel and restart every one of them for nothing.
+     */
     val currentProfile: SharedFlow<Profile> = preferencesRepository.getCurrentProfile().map {
         postListRepository.getProfile(it)
-    }.shareIn(viewModelScope, SharingStarted.WhileSubscribed(), 1)
+    }.distinctUntilChanged().shareIn(viewModelScope, SharingStarted.WhileSubscribed(), 1)
 
     protected val historyIds: Flow<List<String>> = currentProfile.flatMapLatest {
         postListRepository.getHistoryIds(it.id)
