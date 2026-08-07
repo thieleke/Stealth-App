@@ -10,6 +10,13 @@ import org.jsoup.Jsoup
 // https://gitlab.com/cosmosapps/stealth/-/work_items/141#note_3430084325
 class RedditCookieInitializationInterceptor() : Interceptor {
 
+    /**
+     * Serializes the challenge: without it, every request racing through a cold start (e.g. the
+     * saved Users timeline fetching all its users in parallel) would run its own challenge
+     * round-trips before any of them stored the cookie.
+     */
+    private val initializationLock = Any()
+
     private fun hasRequiredCookies(): Boolean {
         val cookies = CookieManager.getInstance()
             .getCookie("https://www.reddit.com/")
@@ -20,7 +27,12 @@ class RedditCookieInitializationInterceptor() : Interceptor {
 
     override fun intercept(chain: Interceptor.Chain): Response {
         if (!hasRequiredCookies()) {
-            initializeCookies(chain)
+            synchronized(initializationLock) {
+                // The request that held the lock may have initialized them in the meantime
+                if (!hasRequiredCookies()) {
+                    initializeCookies(chain)
+                }
+            }
         }
 
         return chain.proceed(chain.request())

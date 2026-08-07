@@ -51,9 +51,10 @@ class TedditSource @Inject constructor(private val tedditApi: TedditApi) : BaseR
         user: String,
         sort: Sort,
         timeSorting: TimeSorting?,
-        after: String?
+        after: String?,
+        limit: Int?
     ): Listing {
-        return tedditApi.getUserPosts(user, sort, timeSorting, after).overview
+        return tedditApi.getUserPosts(user, sort, timeSorting, after, limit).overview
     }
 
     override suspend fun getUserComments(

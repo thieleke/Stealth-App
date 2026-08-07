@@ -49,7 +49,8 @@ interface TedditApi {
         @Path("user") user: String,
         @Query("sort") sort: Sort,
         @Query("t") timeSorting: TimeSorting?,
-        @Query("after") after: String? = null
+        @Query("after") after: String? = null,
+        @Query("limit") limit: Int? = null
     ): TedditUser
 
     @GET("/u/{user}/comments?api")

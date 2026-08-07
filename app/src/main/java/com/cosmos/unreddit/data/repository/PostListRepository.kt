@@ -142,9 +142,12 @@ class PostListRepository @Inject constructor(
     /**
      * One-shot fetch of a user's newest submissions, most recent first. Used by the saved Users
      * timeline, which shows a single current post per user rather than a paged list.
+     *
+     * [limit] is passed to the API to keep the response small; sources that cannot honor it
+     * (web scraping) return their full page, so it is applied again client-side.
      */
     suspend fun getUserLatestPosts(user: String, limit: Int = USER_LATEST_LIMIT): List<PostData> {
-        return source.getUserPosts(user, Sort.NEW, null, null)
+        return source.getUserPosts(user, Sort.NEW, null, null, limit)
             .data
             .children
             .filterIsInstance<PostChild>()

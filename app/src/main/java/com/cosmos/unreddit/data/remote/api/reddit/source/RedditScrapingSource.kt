@@ -88,8 +88,10 @@ class RedditScrapingSource @Inject constructor(
         user: String,
         sort: Sort,
         timeSorting: TimeSorting?,
-        after: String?
+        after: String?,
+        limit: Int?
     ): Listing {
+        // limit is ignored: this source scrapes the HTML page, which has a fixed size
         val response = redditApi.getUserPosts(user, sort, timeSorting, after)
         return PostScraper(ioDispatcher).scrap(response.string())
     }

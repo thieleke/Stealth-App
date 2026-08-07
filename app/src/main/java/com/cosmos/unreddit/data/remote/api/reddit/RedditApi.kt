@@ -65,7 +65,8 @@ interface RedditApi {
         @Path("user") user: String,
         @Query("sort") sort: Sort,
         @Query("t") timeSorting: TimeSorting?,
-        @Query("after") after: String? = null
+        @Query("after") after: String? = null,
+        @Query("limit") limit: Int? = null
     ): ResponseBody
 
     @GET("/user/{user}/comments/")

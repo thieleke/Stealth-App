@@ -69,9 +69,10 @@ class CurrentSource @Inject constructor(
         user: String,
         sort: Sort,
         timeSorting: TimeSorting?,
-        after: String?
+        after: String?,
+        limit: Int?
     ): Listing {
-        return source.getUserPosts(user, sort, timeSorting, after)
+        return source.getUserPosts(user, sort, timeSorting, after, limit)
     }
 
     override suspend fun getUserComments(
