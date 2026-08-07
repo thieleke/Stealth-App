@@ -48,7 +48,8 @@ sealed interface BaseRedditSource {
         user: String,
         sort: Sort,
         timeSorting: TimeSorting?,
-        after: String? = null
+        after: String? = null,
+        limit: Int? = null
     ): Listing
 
     suspend fun getUserComments(

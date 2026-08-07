@@ -240,9 +240,11 @@ class ProfileViewModel @Inject constructor(
             async {
                 val latest = runCatching {
                     semaphore.withPermit {
-                        postMapper
-                            .dataToEntities(repository.getUserLatestPosts(savedPost.author))
+                        // Filter on the raw data and map only the kept post: mapping parses the
+                        // selftext HTML, too costly for posts that are thrown away
+                        repository.getUserLatestPosts(savedPost.author)
                             .firstOrNull { input.preferences.showNsfw || !it.isOver18 }
+                            ?.let { postMapper.dataToEntity(it) }
                     }
                 }.getOrNull()
 

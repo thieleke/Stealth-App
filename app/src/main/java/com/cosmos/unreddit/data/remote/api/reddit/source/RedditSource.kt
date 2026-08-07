@@ -83,9 +83,10 @@ class RedditSource @Inject constructor(
         user: String,
         sort: Sort,
         timeSorting: TimeSorting?,
-        after: String?
+        after: String?,
+        limit: Int?
     ): Listing = withContext(ioDispatcher) {
-        val response = redditApi.getUserPosts(user, sort, timeSorting, after)
+        val response = redditApi.getUserPosts(user, sort, timeSorting, after, limit)
         listingAdapter.fromJson(response.source()) ?: throw IOException()
     }
 
