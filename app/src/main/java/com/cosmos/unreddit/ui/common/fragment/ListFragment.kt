@@ -102,6 +102,32 @@ abstract class ListFragment<T : Adapter<out ViewHolder>> : BaseFragment(),
         return true
     }
 
+    /**
+     * Makes sure the pending layout of the list actually gets a traversal.
+     *
+     * The list of a tab lives inside a ViewPager2, which holds its pages in a RecyclerView of its
+     * own. A RecyclerView drops the `requestLayout()` calls it receives while it is laying out or
+     * scrolling: it only notes them and then runs `dispatchLayout()`, which does not re-measure
+     * its children. When that happens the page keeps a layout request that nothing will honour,
+     * and the items submitted afterwards stay invisible until a touch forces a scroll pass —
+     * every later `requestLayout()` stops at the first ancestor already waiting for one.
+     *
+     * Re-requesting from the first ancestor that is *not* waiting rebuilds the chain up to the
+     * ViewRootImpl, which schedules the traversal.
+     */
+    protected fun ensureLayoutPass() {
+        val list = _binding?.listContent ?: return
+
+        if (!list.isLayoutRequested) return
+
+        var parent: View? = list.parent as? View
+        while (parent != null && parent.isLayoutRequested) {
+            parent = parent.parent as? View
+        }
+
+        parent?.requestLayout()
+    }
+
     protected fun setRefreshTime(timeInMillis: Long) {
         val time = getString(R.string.last_refresh, DateUtil.getLocalizedTime(timeInMillis))
         (binding.pullRefresh.refreshView as? PullToRefreshView)?.setLastRefresh(time)
