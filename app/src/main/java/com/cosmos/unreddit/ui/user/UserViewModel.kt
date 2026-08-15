@@ -20,8 +20,10 @@ import com.cosmos.unreddit.data.repository.PreferencesRepository
 import com.cosmos.unreddit.di.DispatchersModule
 import com.cosmos.unreddit.ui.base.BaseViewModel
 import com.cosmos.unreddit.util.PostUtil
+import com.cosmos.unreddit.util.extension.latest
 import com.cosmos.unreddit.util.extension.updateValue
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,8 +32,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.dropWhile
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
@@ -40,6 +44,8 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import retrofit2.HttpException
 import java.io.IOException
 import javax.inject.Inject
@@ -74,6 +80,41 @@ class UserViewModel @Inject constructor(
     private val savedCommentIds: Flow<List<String>> = currentProfile.flatMapLatest {
         repository.getSavedCommentIds(it.id)
     }.shareIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 1)
+
+    /**
+     * Lowercased authors of the saved posts of the current profile: the users of the saved Users
+     * timeline. The star of the profile page is filled when the shown user is among them.
+     *
+     * The NSFW preference is part of the query rather than applied afterwards, because the
+     * timeline hides users whose saved posts are all NSFW; a star filled for such a user would
+     * point at a row that is not there.
+     */
+    private val savedAuthors: Flow<Set<String>> = combine(
+        currentProfile,
+        contentPreferences
+    ) { profile, preferences ->
+        profile.id to preferences.showNsfw
+    }.distinctUntilChanged()
+        .flatMapLatest { (profileId, showNsfw) ->
+            repository.getSavedAuthors(profileId, showNsfw)
+        }
+        .map { authors -> authors.toSet() }
+        .shareIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 1)
+
+    /**
+     * Whether the shown user has at least one saved post, i.e. whether the star is filled.
+     */
+    val isUserSaved: StateFlow<Boolean> = combine(
+        user,
+        savedAuthors
+    ) { name, authors ->
+        name.isNotBlank() && authors.contains(name.lowercase())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    private val saveUserMutex = Mutex()
+
+    // Only touched from the main dispatcher, by taps and by the toggle they launch
+    private var saveUserRequest = 0
 
     private val _lastRefreshPost: MutableStateFlow<Long> =
         MutableStateFlow(System.currentTimeMillis())
@@ -194,6 +235,71 @@ class UserViewModel @Inject constructor(
 
     fun setPage(position: Int) {
         _page.updateValue(position)
+    }
+
+    /**
+     * Toggles the star of the shown user.
+     *
+     * Starring saves the user's newest visible post, the same way the saved Users timeline is
+     * built, so the user appears in it. Unstarring removes every saved post of the user, so they
+     * leave it. The star itself is driven by [isUserSaved], which re-evaluates from the database
+     * after either operation.
+     *
+     * [onRevert] is called when the requested state could not be reached (no post to save, the
+     * fetch failed, or there is no profile yet), so the caller can put the star back.
+     */
+    fun toggleSaveUser(isChecked: Boolean, onRevert: () -> Unit = {}) {
+        val name = _user.value
+        if (name.isBlank()) {
+            onRevert()
+            return
+        }
+
+        // Taps are serialized, and only the newest one is applied: starring waits on the network,
+        // and a fetch still in flight must not write over the state a later tap settled on
+        val request = ++saveUserRequest
+
+        viewModelScope.launch {
+            saveUserMutex.withLock {
+                if (request != saveUserRequest) {
+                    return@withLock
+                }
+
+                val profile = currentProfile.latest
+                if (profile == null) {
+                    onRevert()
+                    return@withLock
+                }
+
+                if (isChecked) {
+                    val showNsfw = contentPreferences.first().showNsfw
+
+                    val latest = try {
+                        // Only a post the user would actually see: saving a hidden one would fill
+                        // the star for a user the timeline does not list
+                        repository.getUserLatestPosts(name)
+                            .firstOrNull { showNsfw || !it.isOver18 }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        null
+                    }
+
+                    if (request != saveUserRequest) {
+                        // Superseded while fetching; the newer tap owns the state now
+                        return@withLock
+                    }
+
+                    if (latest == null) {
+                        onRevert()
+                    } else {
+                        repository.savePost(postMapper.dataToEntity(latest), profile.id)
+                    }
+                } else {
+                    repository.unsaveUserPosts(name, profile.id)
+                }
+            }
+        }
     }
 
     companion object {

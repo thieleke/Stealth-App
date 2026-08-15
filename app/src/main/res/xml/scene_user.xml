@@ -43,6 +43,15 @@
             app:layout_constraintBottom_toTopOf="@id/user_name">
         </Constraint>
         <Constraint
+            android:id="@id/user_star"
+            android:layout_width="@dimen/app_bar_button_size"
+            android:layout_height="@dimen/app_bar_button_size"
+            android:layout_marginStart="@dimen/app_bar_margin"
+            app:layout_constraintStart_toEndOf="@id/user_image"
+            app:layout_constraintTop_toTopOf="@id/user_image"
+            app:layout_constraintBottom_toBottomOf="@id/user_image">
+        </Constraint>
+        <Constraint
             android:id="@id/user_name"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -153,6 +162,15 @@
             app:layout_constraintBottom_toBottomOf="@id/user_header">
         </Constraint>
         <Constraint
+            android:id="@id/user_star"
+            android:layout_width="@dimen/app_bar_button_size"
+            android:layout_height="@dimen/app_bar_button_size"
+            android:layout_marginEnd="@dimen/app_bar_margin"
+            app:layout_constraintEnd_toStartOf="@id/sort_icon"
+            app:layout_constraintTop_toTopOf="@id/user_header"
+            app:layout_constraintBottom_toBottomOf="@id/user_header">
+        </Constraint>
+        <Constraint
             android:id="@id/user_name"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -160,7 +178,7 @@
             android:scaleY="1.0"
             android:layout_marginStart="@dimen/app_bar_margin"
             app:layout_constraintStart_toEndOf="@id/user_image"
-            app:layout_constraintEnd_toStartOf="@id/sort_icon"
+            app:layout_constraintEnd_toStartOf="@id/user_star"
             app:layout_constraintBottom_toBottomOf="@id/user_header"
             app:layout_constraintTop_toTopOf="@id/user_header">
         </Constraint>

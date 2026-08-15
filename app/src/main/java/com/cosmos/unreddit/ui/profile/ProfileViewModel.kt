@@ -36,6 +36,7 @@ import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import retrofit2.HttpException
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 
@@ -276,11 +277,13 @@ class ProfileViewModel @Inject constructor(
             async {
                 val key = savedPost.authorKey
 
+                var rateLimited = false
+
                 val latest = try {
                     semaphore.withPermit {
                         // Filter on the raw data and map only the kept post: mapping parses the
                         // selftext HTML, too costly for posts that are thrown away
-                        repository.getUserLatestPosts(savedPost.author)
+                        repository.getSavedUserLatestPosts(savedPost.author)
                             .firstOrNull { input.preferences.showNsfw || !it.isOver18 }
                             ?.let { postMapper.dataToEntity(it) }
                     }
@@ -288,12 +291,18 @@ class ProfileViewModel @Inject constructor(
                     // The pass is being replaced by a newer one; not a failure of this user
                     throw e
                 } catch (e: Exception) {
+                    rateLimited = e.isRateLimited()
                     null
                 }
 
                 if (latest == null) {
-                    // Also covers a user whose account is there but has no post to show
-                    failedUserFetches[key] = fetchedAt
+                    // A 429 says nothing about this user, only that we asked too often. Recording
+                    // it would skip them for the whole refresh period over a wait measured in
+                    // seconds, which is how a profile ends up with most of its users unresolved
+                    if (!rateLimited) {
+                        // Also covers a user whose account is there but has no post to show
+                        failedUserFetches[key] = fetchedAt
+                    }
                     null
                 } else {
                     failedUserFetches.remove(key)
@@ -347,6 +356,16 @@ class ProfileViewModel @Inject constructor(
 
         /** Lowercase author, the key both the cache and the timeline are built on */
         private val PostEntity.authorKey: String get() = author.lowercase()
+
+        /**
+         * Whether a failed fetch was Reddit throttling us rather than anything about the user.
+         * Such a failure is temporary and must not be remembered as the user's own.
+         */
+        internal fun Throwable.isRateLimited(): Boolean {
+            return this is HttpException && code() == HTTP_TOO_MANY_REQUESTS
+        }
+
+        private const val HTTP_TOO_MANY_REQUESTS = 429
 
         /**
          * Whether a user has to be fetched again, [fetchedAt] being null for one that never was.

@@ -11,6 +11,8 @@
 
     <color name="red_500">#F44336</color>
 
+    <color name="star_color">#FFC107</color>
+
     <color name="ratio_gradient_low">#F44336</color>
     <color name="ratio_gradient_high">#4CAF50</color>
 

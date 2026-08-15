@@ -69,6 +69,7 @@
     <string name="user_post_karma">Beitragswertung</string>
     <string name="user_comment_karma">Kommentarwertung</string>
     <string name="user_cake_day">Kuchentag</string>
+    <string name="user_star">Benutzer speichern</string>
 
     <string name="flair_nsfw">NSFW</string>
     <string name="flair_spoiler">Spoiler</string>

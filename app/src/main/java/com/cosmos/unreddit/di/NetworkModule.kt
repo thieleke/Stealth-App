@@ -9,6 +9,8 @@ import com.cosmos.unreddit.data.remote.api.reddit.JsonInterceptor
 import com.cosmos.unreddit.data.remote.api.reddit.RedditApi
 import com.cosmos.unreddit.data.remote.api.reddit.RedditCookieInitializationInterceptor
 import com.cosmos.unreddit.data.remote.api.reddit.RedditCookieJar
+import com.cosmos.unreddit.data.remote.api.reddit.RedditRateLimitInterceptor
+import com.cosmos.unreddit.data.remote.api.reddit.RedditRateLimiter
 import com.cosmos.unreddit.data.remote.api.reddit.SortingConverterFactory
 import com.cosmos.unreddit.data.remote.api.reddit.TedditApi
 import com.cosmos.unreddit.data.remote.api.reddit.adapter.EditedAdapter
@@ -122,11 +124,12 @@ object NetworkModule {
     @RedditOkHttp
     @Provides
     @Singleton
-    fun provideRedditOkHttpClient(): OkHttpClient {
+    fun provideRedditOkHttpClient(rateLimiter: RedditRateLimiter): OkHttpClient {
         return OkHttpClient.Builder()
             .addInterceptor(RawJsonInterceptor())
             .addInterceptor(JsonInterceptor())
             .addInterceptor(RedditCookieInitializationInterceptor())
+            .addInterceptor(RedditRateLimitInterceptor(rateLimiter))
             .connectTimeout(TIMEOUT.first, TIMEOUT.second)
             .readTimeout(TIMEOUT.first, TIMEOUT.second)
             .writeTimeout(TIMEOUT.first, TIMEOUT.second)
@@ -161,8 +164,9 @@ object NetworkModule {
     @RedditScrapOkHttp
     @Provides
     @Singleton
-    fun provideRedditScrapOkHttpClient(): OkHttpClient {
+    fun provideRedditScrapOkHttpClient(rateLimiter: RedditRateLimiter): OkHttpClient {
         return OkHttpClient.Builder()
+            .addInterceptor(RedditRateLimitInterceptor(rateLimiter))
             .connectTimeout(TIMEOUT.first, TIMEOUT.second)
             .readTimeout(TIMEOUT.first, TIMEOUT.second)
             .writeTimeout(TIMEOUT.first, TIMEOUT.second)

@@ -57,6 +57,7 @@
      <string name="user_post_karma">Karma del Post</string>
      <string name="user_comment_karma">Karma del comentario</string>
      <string name="user_cake_day">Cake Day</string>
+     <string name="user_star">Guardar usuario</string>
      <string name="flair_nsfw">NSFW</string>
      <string name="flair_spoiler">Spoiler</string>
      <string name="flair_oc">OC</string>

@@ -5,9 +5,20 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <data>
+        <import type="android.text.TextUtils" />
+
         <variable
             name="user"
             type="com.cosmos.unreddit.data.model.User" />
+
+        <!--
+            The name the profile was opened with. Shown until the about request resolves, and kept
+            when it fails or answers without a name, so the header identifies the user even when
+            Reddit does not.
+        -->
+        <variable
+            name="fallbackName"
+            type="String" />
     </data>
 
     <androidx.constraintlayout.motion.widget.MotionLayout
@@ -55,6 +66,18 @@
             app:icon="@drawable/ic_sort"
             style="@style/CardButtonStyle"/>
 
+        <com.cosmos.unreddit.ui.common.widget.CheckableImageView
+            android:id="@+id/user_star"
+            android:layout_width="@dimen/app_bar_button_size"
+            android:layout_height="@dimen/app_bar_button_size"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/sort_card"
+            app:layout_constraintBottom_toBottomOf="@id/guideline_app_bar"
+            android:layout_marginEnd="@dimen/app_bar_margin"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/user_star"
+            app:srcCompat="@drawable/star"/>
+
         <com.cosmos.unreddit.ui.common.widget.SortIconView
             android:id="@+id/sort_icon"
             android:layout_width="wrap_content"
@@ -78,7 +101,7 @@
             android:id="@+id/user_name"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@{user.displayName}"
+            android:text="@{TextUtils.isEmpty(user.displayName) ? fallbackName : user.displayName}"
             android:textAppearance="@style/TextAppearanceAppBarLabel"
             android:ellipsize="none"
             android:singleLine="true"

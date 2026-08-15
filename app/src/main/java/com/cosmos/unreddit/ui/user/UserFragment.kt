@@ -74,6 +74,11 @@ class UserFragment : BaseFragment() {
         launchRepeat(Lifecycle.State.STARTED) {
             launch {
                 viewModel.user.collect { user ->
+                    // The name is known from the navigation argument, so the header can show it
+                    // straight away rather than waiting on the about request — and keep showing
+                    // it if that request fails
+                    binding.fallbackName = user
+
                     user.takeIf { it.isNotBlank() }?.let {
                         viewModel.loadUserInfo(false)
                     }
@@ -95,6 +100,12 @@ class UserFragment : BaseFragment() {
                             // ignore
                         }
                     }
+                }
+            }
+
+            launch {
+                viewModel.isUserSaved.collect { saved ->
+                    binding.userStar.isChecked = saved
                 }
             }
         }
@@ -142,6 +153,16 @@ class UserFragment : BaseFragment() {
         with(binding) {
             sortCard.setOnClickListener { showSortDialog() }
             backCard.setOnClickListener { onBackPressed() }
+            userStar.setOnClickListener {
+                val newState = !userStar.isChecked
+                userStar.isChecked = newState
+                viewModel.toggleSaveUser(newState) {
+                    // The requested state could not be reached (no post to save, or the fetch
+                    // failed): fall back on what the database says rather than on the state
+                    // before the tap, which another change may have moved on from since
+                    _binding?.userStar?.isChecked = viewModel.isUserSaved.value
+                }
+            }
         }
     }
 

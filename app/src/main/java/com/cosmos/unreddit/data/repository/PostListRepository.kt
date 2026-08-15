@@ -18,6 +18,7 @@ import com.cosmos.unreddit.data.remote.api.reddit.model.Child
 import com.cosmos.unreddit.data.remote.api.reddit.model.Listing
 import com.cosmos.unreddit.data.remote.api.reddit.model.MoreChildren
 import com.cosmos.unreddit.data.remote.api.reddit.model.PostChild
+import com.cosmos.unreddit.data.remote.api.reddit.RedditRateLimiter
 import com.cosmos.unreddit.data.remote.api.reddit.model.PostData
 import com.cosmos.unreddit.data.remote.api.reddit.source.CurrentSource
 import com.cosmos.unreddit.data.remote.datasource.CommentsDataSource
@@ -40,6 +41,7 @@ import javax.inject.Singleton
 class PostListRepository @Inject constructor(
     private val source: CurrentSource,
     private val redditDatabase: RedditDatabase,
+    private val rateLimiter: RedditRateLimiter,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
     @MainImmediateDispatcher private val mainImmediateDispatcher: CoroutineDispatcher
 ) {
@@ -288,13 +290,48 @@ class PostListRepository @Inject constructor(
         return redditDatabase.commentDao().getSavedCommentIdsFromProfile(profileId)
     }
 
+    /**
+     * Lowercased authors of the saved posts of a profile: the users of the saved Users timeline,
+     * and the ones whose profile page shows a filled star.
+     *
+     * [showNsfw] mirrors the filter the timeline applies to the same posts, so both views agree
+     * on a user whose saved posts are all hidden.
+     */
+    fun getSavedAuthors(profileId: Int, showNsfw: Boolean): Flow<List<String>> {
+        return redditDatabase.postDao().getSavedAuthorsFromProfile(profileId, showNsfw)
+    }
+
+    /**
+     * Removes every saved post of [author] for [profileId], i.e. unstars the user from the
+     * profile page.
+     */
+    suspend fun unsaveUserPosts(author: String, profileId: Int) {
+        redditDatabase.postDao().deleteFromAuthorAndProfile(author, profileId)
+    }
+
     //endregion
 
     //region Saved users
 
     /**
+     * [getUserLatestPosts] for the saved Users sweep, paced by [RedditRateLimiter].
+     *
+     * The sweep issues one request per saved user, so on a large profile it is the app's biggest
+     * source of traffic by far and the one that provokes Reddit's rate limit. One-off callers —
+     * the profile page's star, say — go through [getUserLatestPosts] directly and are not made to
+     * wait behind it.
+     */
+    suspend fun getSavedUserLatestPosts(
+        user: String,
+        limit: Int = USER_LATEST_LIMIT
+    ): List<PostData> {
+        rateLimiter.acquire()
+        return getUserLatestPosts(user, limit)
+    }
+
+    /**
      * Cached latest post of every saved user of a profile, as fetched by
-     * [getUserLatestPosts]. See [SavedUserPost].
+     * [getSavedUserLatestPosts]. See [SavedUserPost].
      */
     suspend fun getSavedUserPosts(profileId: Int): List<SavedUserPost> {
         return redditDatabase.savedUserPostDao().getFromProfile(profileId)
