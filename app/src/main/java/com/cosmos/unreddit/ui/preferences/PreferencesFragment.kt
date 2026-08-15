@@ -22,6 +22,7 @@ import com.cosmos.unreddit.data.model.preferences.DataPreferences
 import com.cosmos.unreddit.data.model.preferences.DataPreferences.RedditSource.REDDIT
 import com.cosmos.unreddit.data.model.preferences.DataPreferences.RedditSource.REDDIT_SCRAP
 import com.cosmos.unreddit.data.model.preferences.DataPreferences.RedditSource.TEDDIT
+import com.cosmos.unreddit.data.model.preferences.MediaPreferences
 import com.cosmos.unreddit.data.model.preferences.ProfilePreferences
 import com.cosmos.unreddit.data.model.preferences.UiPreferences
 import com.cosmos.unreddit.databinding.LayoutPreferenceListBinding
@@ -52,6 +53,7 @@ class PreferencesFragment : PreferenceFragmentCompat() {
     private var showNsfwPreviewPreference: SwitchPreferenceCompat? = null
     private var showSpoilerPreviewPreference: SwitchPreferenceCompat? = null
     private var largePreviewPreference: SwitchPreferenceCompat? = null
+    private var downloadFilenameAuthorPreference: SwitchPreferenceCompat? = null
     private var savedUsersRefreshPreference: Preference? = null
     private var backupPreference: Preference? = null
     private var sourcePreference: Preference? = null
@@ -148,6 +150,15 @@ class PreferencesFragment : PreferenceFragmentCompat() {
         )?.apply {
             setOnPreferenceChangeListener { _, newValue ->
                 viewModel.setLargePreview(newValue as Boolean)
+                true
+            }
+        }
+
+        downloadFilenameAuthorPreference = findPreference<SwitchPreferenceCompat>(
+            MediaPreferences.PreferencesKeys.DOWNLOAD_FILENAME_AUTHOR.name
+        )?.apply {
+            setOnPreferenceChangeListener { _, newValue ->
+                viewModel.setDownloadFilenameAuthor(newValue as Boolean)
                 true
             }
         }
@@ -281,6 +292,12 @@ class PreferencesFragment : PreferenceFragmentCompat() {
             launch {
                 viewModel.largePreview.collect { largePreview ->
                     largePreviewPreference?.isChecked = largePreview
+                }
+            }
+
+            launch {
+                viewModel.downloadFilenameAuthor.collect { downloadFilenameAuthor ->
+                    downloadFilenameAuthorPreference?.isChecked = downloadFilenameAuthor
                 }
             }
 

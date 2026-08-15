@@ -38,6 +38,8 @@ class PreferencesViewModel @Inject constructor(
 
     val largePreview: Flow<Boolean> = preferencesRepository.getLargePreview()
 
+    val downloadFilenameAuthor: Flow<Boolean> = preferencesRepository.getDownloadFilenameAuthor()
+
     val savedUsersRefresh: SharedFlow<Int> = preferencesRepository.getSavedUsersRefresh()
         .shareIn(viewModelScope, SharingStarted.WhileSubscribed(), 1)
 
@@ -106,6 +108,12 @@ class PreferencesViewModel @Inject constructor(
     fun setLargePreview(largePreview: Boolean) {
         viewModelScope.launch {
             preferencesRepository.setLargePreview(largePreview)
+        }
+    }
+
+    fun setDownloadFilenameAuthor(downloadFilenameAuthor: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.setDownloadFilenameAuthor(downloadFilenameAuthor)
         }
     }
 

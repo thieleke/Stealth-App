@@ -1,6 +1,7 @@
 package com.cosmos.unreddit.data.worker
 
 import android.app.PendingIntent
+import android.content.ContentResolver
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
@@ -23,14 +24,17 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.cosmos.unreddit.BuildConfig
 import com.cosmos.unreddit.R
 import com.cosmos.unreddit.data.model.GalleryMedia
 import com.cosmos.unreddit.data.receiver.DownloadManagerReceiver
+import com.cosmos.unreddit.data.repository.PreferencesRepository
 import com.cosmos.unreddit.di.DispatchersModule.IoDispatcher
 import com.cosmos.unreddit.util.DateUtil
+import com.cosmos.unreddit.util.FilenameUtil
 import com.cosmos.unreddit.util.IntentUtil
 import com.cosmos.unreddit.util.extension.cancelAllWorkByTag
 import com.cosmos.unreddit.util.extension.cancelNotification
@@ -41,6 +45,7 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -50,22 +55,34 @@ import okio.buffer
 import okio.sink
 import java.io.File
 import java.util.Date
+import java.util.UUID
 import java.nio.ByteBuffer
 
 @HiltWorker
 class MediaDownloadWorker @AssistedInject constructor (
     @Assisted appContext: Context,
     @Assisted params: WorkerParameters,
-    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    private val preferencesRepository: PreferencesRepository
 ) : CoroutineWorker(appContext, params) {
 
-    private val filename: String
-        get() = applicationContext.getString(R.string.app_name) +
+    /**
+     * Base name of the downloaded files, either the app name or the author of the post the media
+     * comes from, depending on the user preference.
+     */
+    private suspend fun getFilename(author: String?): String {
+        val name = author
+            ?.takeIf { preferencesRepository.getDownloadFilenameAuthor().first() }
+            ?.let { FilenameUtil.sanitize(it) }
+            ?: applicationContext.getString(R.string.app_name)
+
+        return name +
             "_" +
             DateUtil.getFormattedDate(
                 applicationContext.getString(R.string.file_date_format),
                 Date()
             )
+    }
 
     override suspend fun doWork(): Result {
         val url = inputData.getString(KEY_URL) ?: return Result.failure()
@@ -74,6 +91,7 @@ class MediaDownloadWorker @AssistedInject constructor (
         } ?: return Result.failure()
         val sound = inputData.getString(KEY_SOUND)
         val soundType = GalleryMedia.Type.AUDIO
+        val filename = getFilename(inputData.getString(KEY_AUTHOR))
 
         val builder = createDownloadManagerBuilder()
             .setProgress(0, 0, true)
@@ -81,8 +99,8 @@ class MediaDownloadWorker @AssistedInject constructor (
 
         applicationContext.showNotification(NOTIFICATION_ID, builder.build())
 
-        val extension = MimeTypeMap.getFileExtensionFromUrl(url)
-        val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension) ?: ""
+        val mimeType = getMimeType(url, type)
+        val extension = getExtension(mimeType, url)
         val name = when {
             sound == null -> "${filename}.$extension"
             else -> "${filename}_video.$extension"
@@ -121,12 +139,17 @@ class MediaDownloadWorker @AssistedInject constructor (
                 } else {
                     null
                 }
-            if (mergedUri != null && uri != null && soundUri != null) {
-                applicationContext.contentResolver.delete(uri, null, null)
-                applicationContext.contentResolver.delete(soundUri, null, null)
-            }
+            if (mergedUri != null) {
+                // The merged file replaces the separate video and audio downloads
+                uri?.let { deleteMedia(it) }
+                soundUri?.let { deleteMedia(it) }
 
-            uri = mergedUri
+                uri = mergedUri
+            } else {
+                // The media has no soundtrack or muxing failed: keep the video-only download
+                // instead of discarding it, so the download is still reported as a success
+                soundUri?.let { deleteMedia(it) }
+            }
         }
 
         builder
@@ -161,7 +184,9 @@ class MediaDownloadWorker @AssistedInject constructor (
                         .setStyle(
                             NotificationCompat.BigPictureStyle()
                                 .bigPicture(bitmap)
-                                .bigLargeIcon(null)
+                                // Suppresses the large icon while the notification is expanded.
+                                // Cast disambiguates the Bitmap and Icon overloads.
+                                .bigLargeIcon(null as Bitmap?)
                         )
                 }
 
@@ -174,7 +199,7 @@ class MediaDownloadWorker @AssistedInject constructor (
                     .setContentText(
                         applicationContext.getString(R.string.notification_download_content_failed)
                     )
-                    .addAction(getRetryAction(url, type))
+                    .addAction(getRetryAction(url, type, sound, inputData.getString(KEY_AUTHOR)))
 
                 applicationContext.showNotification(NOTIFICATION_ID, builder.build())
 
@@ -336,6 +361,51 @@ class MediaDownloadWorker @AssistedInject constructor (
         }
     }
 
+    /**
+     * The extension of a link can disagree with the type of the media it points to: Reddit serves
+     * the mp4 variant of a gif from the URL of the gif itself, for instance. [MediaStore] rejects
+     * a MIME type that does not match the collection the media is inserted into, so [type] takes
+     * precedence over the extension of [url].
+     */
+    private fun getMimeType(url: String, type: GalleryMedia.Type): String {
+        val urlExtension = MimeTypeMap.getFileExtensionFromUrl(url)
+        val urlMimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(urlExtension)
+
+        return urlMimeType?.takeIf { it.startsWith(type.mimeTypePrefix) } ?: type.defaultMimeType
+    }
+
+    private fun getExtension(mimeType: String, url: String): String {
+        return MimeTypeMap.getSingleton().getExtensionFromMimeType(mimeType)
+            ?: MimeTypeMap.getFileExtensionFromUrl(url)
+    }
+
+    private val GalleryMedia.Type.mimeTypePrefix: String
+        get() = when (this) {
+            GalleryMedia.Type.IMAGE -> "image/"
+            GalleryMedia.Type.VIDEO -> "video/"
+            GalleryMedia.Type.AUDIO -> "audio/"
+        }
+
+    private val GalleryMedia.Type.defaultMimeType: String
+        get() = when (this) {
+            GalleryMedia.Type.IMAGE -> "image/jpeg"
+            GalleryMedia.Type.VIDEO -> "video/mp4"
+            GalleryMedia.Type.AUDIO -> "audio/mp4"
+        }
+
+    /**
+     * Delete a file downloaded by [downloadMedia] or [downloadMediaLegacy], which respectively
+     * return a content and a file [Uri].
+     */
+    private fun deleteMedia(uri: Uri) {
+        runCatching {
+            when (uri.scheme) {
+                ContentResolver.SCHEME_FILE -> uri.path?.let { File(it).delete() }
+                else -> applicationContext.contentResolver.delete(uri, null, null)
+            }
+        }
+    }
+
     private fun createDownloadManagerBuilder(): NotificationCompat.Builder {
         createDownloadManagerChannel()
         return NotificationCompat.Builder(applicationContext, DOWNLOAD_MANAGER_CHANNEL_ID)
@@ -357,11 +427,22 @@ class MediaDownloadWorker @AssistedInject constructor (
         )
     }
 
-    private fun getRetryAction(url: String, type: GalleryMedia.Type): NotificationCompat.Action {
+    private fun getRetryAction(
+        url: String,
+        type: GalleryMedia.Type,
+        sound: String?,
+        author: String?
+    ): NotificationCompat.Action {
         return NotificationCompat.Action.Builder(
             null,
             applicationContext.getString(R.string.notification_download_action_retry),
-            DownloadManagerReceiver.getRetryPendingIntent(applicationContext, url, type)
+            DownloadManagerReceiver.getRetryPendingIntent(
+                applicationContext,
+                url,
+                type,
+                sound,
+                author
+            )
         ).build()
     }
 
@@ -384,20 +465,34 @@ class MediaDownloadWorker @AssistedInject constructor (
         private const val KEY_URL = "KEY_URL"
         private const val KEY_TYPE = "KEY_TYPE"
         private const val KEY_SOUND = "KEY_SOUND"
+        private const val KEY_AUTHOR = "KEY_AUTHOR"
 
-        fun enqueueWork(context: Context, url: String, type: GalleryMedia.Type, sound: String?) {
+        /**
+         * @return the id of the enqueued request, to observe the outcome of the download with
+         * [WorkManager.getWorkInfoByIdLiveData]
+         */
+        fun enqueueWork(
+            context: Context,
+            url: String,
+            type: GalleryMedia.Type,
+            sound: String?,
+            author: String? = null
+        ): UUID {
             val downloadRequest = OneTimeWorkRequestBuilder<MediaDownloadWorker>()
                 .addTag(WORK_TAG)
                 .setInputData(
                     workDataOf(
                         KEY_URL to url,
                         KEY_TYPE to type.value,
-                        KEY_SOUND to sound
+                        KEY_SOUND to sound,
+                        KEY_AUTHOR to author
                     )
                 )
                 .build()
 
             context.enqueueUniqueWork(url, ExistingWorkPolicy.APPEND_OR_REPLACE, downloadRequest)
+
+            return downloadRequest.id
         }
 
         fun cancelWork(context: Context) {
