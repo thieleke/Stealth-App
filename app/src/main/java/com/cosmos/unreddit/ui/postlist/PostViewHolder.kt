@@ -34,6 +34,11 @@ abstract class PostViewHolder(
     private val title = itemView.findViewById<TextView>(R.id.text_post_title)
     private val awards = itemView.findViewById<AwardView>(R.id.awards)
 
+    // Base text sizes (in sp) captured at inflation, before any scaling is applied
+    private val baseVoteTextSize = postMetricsBinding.textPostVote.textSize
+    private val baseRatioTextSize = postMetricsBinding.textPostRatio.textSize
+    private val baseCommentsTextSize = postMetricsBinding.textPostComments.textSize
+
     init {
         itemView.apply {
             setOnClickListener {
@@ -81,6 +86,7 @@ abstract class PostViewHolder(
         }
 
         postMetricsBinding.setRatio(postEntity.ratio)
+        setMetricsScale(contentPreferences)
 
         awards.apply {
             if (postEntity.awards.isNotEmpty()) {
@@ -178,6 +184,52 @@ abstract class PostViewHolder(
             updateLayoutParams<ConstraintLayout.LayoutParams> {
                 matchConstraintMaxHeight = previewMaxHeight
             }
+        }
+    }
+
+    /**
+     * Scale the metrics row (icons and text) by 25% when the large preview preference is enabled.
+     */
+    protected fun setMetricsScale(contentPreferences: ContentPreferences) {
+        val scale = if (contentPreferences.largePreview) 1.25f else 1f
+
+        val iconSize = itemView.resources.getDimensionPixelSize(
+            if (contentPreferences.largePreview) {
+                R.dimen.post_icon_size_large
+            } else {
+                R.dimen.post_icon_size
+            }
+        )
+
+        postMetricsBinding.run {
+            imageVoteIcon.updateLayoutParams {
+                width = iconSize
+                height = iconSize
+            }
+            imageCommentsIcon.updateLayoutParams {
+                width = iconSize
+                height = iconSize
+            }
+            buttonMore.updateLayoutParams {
+                width = iconSize
+                height = iconSize
+            }
+            buttonSave.updateLayoutParams {
+                width = iconSize
+                height = iconSize
+            }
+            buttonSubreddit.updateLayoutParams {
+                width = iconSize
+                height = iconSize
+            }
+            buttonUser.updateLayoutParams {
+                width = iconSize
+                height = iconSize
+            }
+
+            textPostVote.textSize = baseVoteTextSize * scale
+            textPostRatio.textSize = baseRatioTextSize * scale
+            textPostComments.textSize = baseCommentsTextSize * scale
         }
     }
 

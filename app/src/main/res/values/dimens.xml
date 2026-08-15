@@ -27,6 +27,7 @@
     <dimen name="post_margin_top_large">16dp</dimen>
 
     <dimen name="post_icon_size">24dp</dimen>
+    <dimen name="post_icon_size_large">30dp</dimen>
     <dimen name="post_icon_text_margin">5dp</dimen>
 
     <dimen name="post_awards_height">38dp</dimen>
