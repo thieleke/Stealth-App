@@ -5,6 +5,7 @@ import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
+import androidx.room.RoomWarnings
 
 /**
  * Cached result of the network lookup behind the saved Users timeline: the newest post found for
@@ -24,6 +25,11 @@ import androidx.room.Index
         )
     ]
 )
+// The embedded post carries an index on its own profile_id, which Room drops here. Deliberate:
+// post_profile_id is never set on a fetched post — it keeps its -1 default — and nothing queries
+// it, since the rows are partitioned by the outer profile_id above. Re-declaring the index would
+// index a single constant value at the cost of every write.
+@SuppressWarnings(RoomWarnings.ROOM_EMBEDDED_INDEX_IS_DROPPED)
 data class SavedUserPost(
     /**
      * Author of the saved post this entry was fetched for, lowercased: Reddit usernames are
