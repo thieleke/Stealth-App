@@ -84,6 +84,9 @@ class MediaViewerViewModel
     val isVideoMuted: Flow<Boolean>
         get() = preferencesRepository.getMuteVideo(false)
 
+    val largePreview: Flow<Boolean>
+        get() = preferencesRepository.getLargePreview(false)
+
     var hideControls: Boolean = false
 
     /**

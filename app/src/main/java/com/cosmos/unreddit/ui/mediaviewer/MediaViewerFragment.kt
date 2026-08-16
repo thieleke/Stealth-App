@@ -172,7 +172,33 @@ class MediaViewerFragment : FullscreenBottomSheetFragment() {
                     applyDownloadButtonTint()
                 }
             }
+
+            launch {
+                viewerViewModel.largePreview.collect { largePreview ->
+                    applyLargePreviewScale(largePreview)
+                }
+            }
         }
+    }
+
+    /**
+     * Scale the download button and the multi-image thumbnails by 25% when the large preview
+     * preference is enabled.
+     */
+    private fun applyLargePreviewScale(largePreview: Boolean) {
+        val scale = if (largePreview) 1.25f else 1f
+
+        val buttonSize = (resources.getDimension(R.dimen.media_button_size) * scale).toInt()
+        binding.buttonDownload.updateLayoutParams {
+            width = buttonSize
+            height = buttonSize
+        }
+
+        val thumbnailSize = (resources.getDimension(R.dimen.media_thumbnail_size) * scale).toInt()
+        binding.listThumbnails.updateLayoutParams {
+            height = thumbnailSize
+        }
+        thumbnailAdapter.thumbnailSize = thumbnailSize
     }
 
     private fun initRecyclerView() {

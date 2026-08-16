@@ -2,6 +2,7 @@ package com.cosmos.unreddit.ui.mediaviewer
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.core.view.updateLayoutParams
 import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import coil.size.Precision
@@ -15,6 +16,18 @@ class MediaViewerThumbnailAdapter(
 
     private val images: MutableList<GalleryMedia> = mutableListOf()
     private var selected: Int = 0
+
+    /**
+     * Size of the thumbnail items, in pixels. Zero means the size declared in the layout.
+     * Scaled up when the large preview preference is enabled.
+     */
+    var thumbnailSize: Int = 0
+        set(value) {
+            if (field != value) {
+                field = value
+                notifyDataSetChanged()
+            }
+        }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val inflater = LayoutInflater.from(parent.context)
@@ -56,6 +69,12 @@ class MediaViewerThumbnailAdapter(
     ) : RecyclerView.ViewHolder(binding.root) {
 
         fun bind(image: GalleryMedia) {
+            if (thumbnailSize > 0) {
+                binding.root.updateLayoutParams {
+                    width = thumbnailSize
+                    height = thumbnailSize
+                }
+            }
             binding.thumbnail.load(image.url) {
                 crossfade(true)
                 scale(Scale.FILL)

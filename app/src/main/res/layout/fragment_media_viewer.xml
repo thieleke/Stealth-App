@@ -78,6 +78,7 @@
         android:layout_margin="@dimen/media_button_margin"
         android:background="@drawable/media_controls_background"
         android:padding="4dp"
+        android:gravity="center_vertical"
         android:visibility="gone"
         tools:visibility="visible">
 
