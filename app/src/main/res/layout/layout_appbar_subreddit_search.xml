@@ -38,8 +38,9 @@
         app:layout_constraintStart_toEndOf="@id/subreddit_image"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toStartOf="@id/sort_icon"
+        app:layout_constraintEnd_toStartOf="@id/filter_card"
         android:layout_marginStart="@dimen/app_bar_margin"
+        android:layout_marginEnd="@dimen/app_bar_margin"
         android:textAppearance="@style/TextAppearanceAppBarLabel"
         android:ellipsize="none"
         android:singleLine="true"
@@ -80,6 +81,16 @@
         app:layout_constraintBottom_toBottomOf="parent"
         android:paddingHorizontal="@dimen/app_bar_margin"
         app:sortType="search"/>
+
+    <com.cosmos.unreddit.ui.common.widget.CardButton
+        android:id="@+id/filter_card"
+        android:layout_width="@dimen/app_bar_button_size"
+        android:layout_height="@dimen/app_bar_button_size"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/sort_icon"
+        app:icon="@drawable/ic_filter"
+        style="@style/CardButtonStyle"/>
 
     <com.cosmos.unreddit.ui.common.widget.CardButton
         android:id="@+id/cancel_card"

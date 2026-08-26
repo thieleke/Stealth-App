@@ -141,8 +141,9 @@
             android:scaleX="1.0"
             android:scaleY="1.0"
             android:layout_marginStart="@dimen/app_bar_margin"
+            android:layout_marginEnd="@dimen/app_bar_margin"
             app:layout_constraintStart_toEndOf="@id/subreddit_image"
-            app:layout_constraintEnd_toStartOf="@id/sort_icon"
+            app:layout_constraintEnd_toStartOf="@id/filter_card"
             app:layout_constraintBottom_toBottomOf="@id/subreddit_header"
             app:layout_constraintTop_toTopOf="@id/subreddit_header">
         </Constraint>

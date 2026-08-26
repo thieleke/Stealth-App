@@ -1,11 +1,14 @@
 package com.cosmos.unreddit.ui.common.widget
 
 import android.content.Context
+import android.content.res.ColorStateList
 import android.graphics.drawable.Drawable
 import android.util.AttributeSet
 import android.widget.ImageView
 import androidx.annotation.DrawableRes
 import androidx.appcompat.content.res.AppCompatResources
+import androidx.core.content.ContextCompat
+import androidx.core.widget.ImageViewCompat
 import com.cosmos.unreddit.R
 
 import com.google.android.material.card.MaterialCardView
@@ -19,6 +22,12 @@ class CardButton @JvmOverloads constructor(
     private var icon: ImageView
 
     private var iconDrawable: Drawable? = null
+
+    private val defaultCardColor: ColorStateList
+
+    private val defaultIconColor: ColorStateList
+
+    private var isInverted: Boolean = false
 
     init {
         context.theme.obtainStyledAttributes(
@@ -39,6 +48,10 @@ class CardButton @JvmOverloads constructor(
         inflate(context, R.layout.view_card_button, this)
 
         icon = findViewById(R.id.icon)
+
+        defaultCardColor = cardBackgroundColor
+        defaultIconColor = ImageViewCompat.getImageTintList(icon)
+            ?: ColorStateList.valueOf(ContextCompat.getColor(context, R.color.colorPrimary))
     }
 
     override fun onFinishInflate() {
@@ -53,5 +66,23 @@ class CardButton @JvmOverloads constructor(
     fun setIcon(drawable: Drawable?) {
         iconDrawable = drawable
         icon.setImageDrawable(drawable)
+    }
+
+    /**
+     * Swaps the card and icon colors to signal that the option behind this button is active.
+     */
+    fun setInverted(inverted: Boolean) {
+        if (isInverted == inverted) {
+            return
+        }
+        isInverted = inverted
+
+        if (inverted) {
+            setCardBackgroundColor(defaultIconColor)
+            ImageViewCompat.setImageTintList(icon, defaultCardColor)
+        } else {
+            setCardBackgroundColor(defaultCardColor)
+            ImageViewCompat.setImageTintList(icon, defaultIconColor)
+        }
     }
 }

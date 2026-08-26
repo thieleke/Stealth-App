@@ -5,6 +5,7 @@ import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.cosmos.unreddit.data.local.mapper.PostMapper2
 import com.cosmos.unreddit.data.model.Data
+import com.cosmos.unreddit.data.model.PostTypeFilter
 import com.cosmos.unreddit.data.model.Sort
 import com.cosmos.unreddit.data.model.Sorting
 import com.cosmos.unreddit.data.model.db.PostEntity
@@ -12,6 +13,7 @@ import com.cosmos.unreddit.data.model.ProfileItem
 import com.cosmos.unreddit.data.model.db.Profile
 import com.cosmos.unreddit.data.model.preferences.ContentPreferences
 import com.cosmos.unreddit.data.repository.PostListRepository
+import com.cosmos.unreddit.data.repository.PostTypeFilterRepository
 import com.cosmos.unreddit.data.repository.PreferencesRepository
 import com.cosmos.unreddit.di.DispatchersModule.DefaultDispatcher
 import com.cosmos.unreddit.ui.base.BaseViewModel
@@ -41,6 +43,7 @@ class PostListViewModel
     private val repository: PostListRepository,
     private val preferencesRepository: PreferencesRepository,
     private val postMapper: PostMapper2,
+    private val postTypeFilterRepository: PostTypeFilterRepository,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher
 ) : BaseViewModel(preferencesRepository, repository) {
 
@@ -60,6 +63,8 @@ class PostListViewModel
     private val _sorting: MutableStateFlow<Sorting> = MutableStateFlow(DEFAULT_SORTING)
     val sorting: StateFlow<Sorting> = _sorting
 
+    val postTypeFilter: StateFlow<PostTypeFilter> = postTypeFilterRepository.postTypeFilter
+
     val subreddit: Flow<List<String>> = subscriptionsNames
         .distinctUntilChanged()
         .map { subscriptions ->
@@ -75,9 +80,10 @@ class PostListViewModel
 
     val fetchData: StateFlow<Data.FetchMultiple> = combine(
         subreddit,
-        sorting
-    ) { subreddit, sorting ->
-        Data.FetchMultiple(subreddit, sorting)
+        sorting,
+        postTypeFilter
+    ) { subreddit, sorting, filter ->
+        Data.FetchMultiple(subreddit, sorting, filter)
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000),
@@ -111,7 +117,7 @@ class PostListViewModel
     }
 
     private fun getPosts(data: Data.FetchMultiple, user: Data.User): Flow<PagingData<PostEntity>> {
-        return repository.getPosts(data.query, data.sorting)
+        return repository.getPosts(data.query, data.sorting, data.filter)
             .map { pagingData ->
                 PostUtil.filterPosts(pagingData, latestUser ?: user, postMapper, defaultDispatcher)
             }
@@ -119,6 +125,10 @@ class PostListViewModel
 
     fun setSorting(sorting: Sorting) {
         _sorting.updateValue(sorting)
+    }
+
+    fun setPostTypeFilter(filter: PostTypeFilter) {
+        postTypeFilterRepository.setPostTypeFilter(filter)
     }
 
     fun selectProfile(profile: Profile) {

@@ -29,6 +29,7 @@ import com.cosmos.unreddit.databinding.LayoutSubredditContentBinding
 import com.cosmos.unreddit.ui.base.BaseFragment
 import com.cosmos.unreddit.ui.common.widget.PullToRefreshLayout
 import com.cosmos.unreddit.ui.common.widget.PullToRefreshView
+import com.cosmos.unreddit.ui.filter.FilterFragment
 import com.cosmos.unreddit.ui.loadstate.NetworkLoadStateAdapter
 import com.cosmos.unreddit.ui.postlist.PostListAdapter
 import com.cosmos.unreddit.ui.postmenu.PostMenuFragment
@@ -37,11 +38,14 @@ import com.cosmos.unreddit.util.DateUtil
 import com.cosmos.unreddit.util.extension.addLoadStateListener
 import com.cosmos.unreddit.util.extension.applyWindowInsets
 import com.cosmos.unreddit.util.extension.betterSmoothScrollToPosition
+import com.cosmos.unreddit.util.extension.clearFilterListener
 import com.cosmos.unreddit.util.extension.clearSortingListener
 import com.cosmos.unreddit.util.extension.clearWindowInsetsListener
+import com.cosmos.unreddit.util.extension.collectPostTypeFilter
 import com.cosmos.unreddit.util.extension.launchRepeat
 import com.cosmos.unreddit.util.extension.loadSubredditIcon
 import com.cosmos.unreddit.util.extension.onRefreshFromNetwork
+import com.cosmos.unreddit.util.extension.setFilterListener
 import com.cosmos.unreddit.util.extension.setSortingListener
 import com.cosmos.unreddit.util.extension.toPixels
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -159,6 +163,10 @@ class SubredditFragment : BaseFragment(), PopupMenu.OnMenuItemClickListener,
             }
 
             launch {
+                bindingContent.filterCard.collectPostTypeFilter(viewModel.postTypeFilter)
+            }
+
+            launch {
                 viewModel.postDataFlow.collectLatest {
                     postListAdapter.submitData(it)
                 }
@@ -256,6 +264,7 @@ class SubredditFragment : BaseFragment(), PopupMenu.OnMenuItemClickListener,
     private fun initAppBar() {
         with(bindingContent) {
             sortCard.setOnClickListener { showSortDialog() }
+            filterCard.setOnClickListener { showFilterDialog() }
             backCard.setOnClickListener { onBackPressed() }
             moreCard.setOnClickListener { showMenu() }
             subredditName.setOnClickListener { scrollToTop() }
@@ -265,6 +274,8 @@ class SubredditFragment : BaseFragment(), PopupMenu.OnMenuItemClickListener,
 
     private fun initResultListener() {
         setSortingListener { sorting -> sorting?.let { viewModel.setSorting(it) } }
+
+        setFilterListener { filter -> filter?.let { viewModel.setPostTypeFilter(it) } }
     }
 
     private fun bindInfo(about: SubredditEntity) {
@@ -339,6 +350,10 @@ class SubredditFragment : BaseFragment(), PopupMenu.OnMenuItemClickListener,
 
     private fun showSortDialog() {
         SortFragment.show(childFragmentManager, viewModel.sorting.value)
+    }
+
+    private fun showFilterDialog() {
+        FilterFragment.show(childFragmentManager, viewModel.postTypeFilter.value)
     }
 
     private fun showNotFoundDialog() {
@@ -423,6 +438,7 @@ class SubredditFragment : BaseFragment(), PopupMenu.OnMenuItemClickListener,
         viewModel.drawerContentLayoutProgress = binding.drawerContent.progress
 
         clearSortingListener()
+        clearFilterListener()
 
         _binding = null
         _bindingContent = null

@@ -14,12 +14,16 @@ import com.cosmos.unreddit.R
 import com.cosmos.unreddit.databinding.FragmentSearchBinding
 import com.cosmos.unreddit.ui.base.BaseFragment
 import com.cosmos.unreddit.ui.common.adapter.FragmentAdapter
+import com.cosmos.unreddit.ui.filter.FilterFragment
 import com.cosmos.unreddit.ui.sort.SortFragment
 import com.cosmos.unreddit.util.SearchUtil
+import com.cosmos.unreddit.util.extension.clearFilterListener
 import com.cosmos.unreddit.util.extension.clearSortingListener
+import com.cosmos.unreddit.util.extension.collectPostTypeFilter
 import com.cosmos.unreddit.util.extension.getRecyclerView
 import com.cosmos.unreddit.util.extension.launchRepeat
 import com.cosmos.unreddit.util.extension.scrollToTop
+import com.cosmos.unreddit.util.extension.setFilterListener
 import com.cosmos.unreddit.util.extension.setSortingListener
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
@@ -87,6 +91,10 @@ class SearchFragment : BaseFragment() {
                     binding.appBar.sortIcon.setSorting(it)
                 }
             }
+
+            launch {
+                binding.appBar.filterCard.collectPostTypeFilter(viewModel.postTypeFilter)
+            }
         }
     }
 
@@ -136,12 +144,14 @@ class SearchFragment : BaseFragment() {
                 addTarget(label)
                 addTarget(sortCard)
                 addTarget(sortIcon)
+                addTarget(filterCard)
                 addTarget(cancelCard)
                 setSearchActionListener {
                     handleSearchAction(it)
                 }
             }
             sortCard.setOnClickListener { showSortDialog() }
+            filterCard.setOnClickListener { showFilterDialog() }
             backCard.setOnClickListener { onBackPressed() }
             cancelCard.setOnClickListener { showSearchInput(false) }
         }
@@ -149,6 +159,8 @@ class SearchFragment : BaseFragment() {
 
     private fun initResultListener() {
         setSortingListener { sorting -> sorting?.let { viewModel.setSorting(it) } }
+
+        setFilterListener { filter -> filter?.let { viewModel.setPostTypeFilter(it) } }
     }
 
     private fun showSearchInput(show: Boolean) {
@@ -159,6 +171,7 @@ class SearchFragment : BaseFragment() {
                     label.isVisible = !show
                     sortCard.isVisible = !show
                     sortIcon.isVisible = !show
+                    filterCard.isVisible = !show
                     cancelCard.isVisible = show
                 }
             }
@@ -181,9 +194,14 @@ class SearchFragment : BaseFragment() {
         )
     }
 
+    private fun showFilterDialog() {
+        FilterFragment.show(childFragmentManager, viewModel.postTypeFilter.value)
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
         clearSortingListener()
+        clearFilterListener()
         _binding = null
     }
 

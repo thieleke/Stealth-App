@@ -6,6 +6,7 @@ import androidx.paging.cachedIn
 import com.cosmos.unreddit.data.local.mapper.PostMapper2
 import com.cosmos.unreddit.data.local.mapper.SubredditMapper2
 import com.cosmos.unreddit.data.model.Data
+import com.cosmos.unreddit.data.model.PostTypeFilter
 import com.cosmos.unreddit.data.model.Resource
 import com.cosmos.unreddit.data.model.Sort
 import com.cosmos.unreddit.data.model.Sorting
@@ -13,6 +14,7 @@ import com.cosmos.unreddit.data.model.db.PostEntity
 import com.cosmos.unreddit.data.model.db.SubredditEntity
 import com.cosmos.unreddit.data.model.preferences.ContentPreferences
 import com.cosmos.unreddit.data.repository.PostListRepository
+import com.cosmos.unreddit.data.repository.PostTypeFilterRepository
 import com.cosmos.unreddit.data.repository.PreferencesRepository
 import com.cosmos.unreddit.di.DispatchersModule.DefaultDispatcher
 import com.cosmos.unreddit.ui.base.BaseViewModel
@@ -47,6 +49,7 @@ class SubredditViewModel @Inject constructor(
     preferencesRepository: PreferencesRepository,
     private val postMapper: PostMapper2,
     private val subredditMapper: SubredditMapper2,
+    private val postTypeFilterRepository: PostTypeFilterRepository,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher
 ) : BaseViewModel(preferencesRepository, repository) {
 
@@ -55,6 +58,8 @@ class SubredditViewModel @Inject constructor(
 
     private val _sorting: MutableStateFlow<Sorting> = MutableStateFlow(DEFAULT_SORTING)
     val sorting: StateFlow<Sorting> = _sorting
+
+    val postTypeFilter: StateFlow<PostTypeFilter> = postTypeFilterRepository.postTypeFilter
 
     private val _subreddit: MutableStateFlow<String> = MutableStateFlow("")
     val subreddit: StateFlow<String> = _subreddit
@@ -94,9 +99,10 @@ class SubredditViewModel @Inject constructor(
 
     val searchData: StateFlow<Data.Fetch> = combine(
         subreddit,
-        sorting
-    ) { subreddit, sorting ->
-        Data.Fetch(subreddit, sorting)
+        sorting,
+        postTypeFilter
+    ) { subreddit, sorting, filter ->
+        Data.Fetch(subreddit, sorting, filter)
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000),
@@ -131,7 +137,7 @@ class SubredditViewModel @Inject constructor(
         data: Data.Fetch,
         user: Data.User
     ): Flow<PagingData<PostEntity>> {
-        return repository.getPosts(data.query, data.sorting)
+        return repository.getPosts(data.query, data.sorting, data.filter)
             .map { pagingData ->
                 PostUtil.filterPosts(pagingData, latestUser ?: user, postMapper, defaultDispatcher)
             }
@@ -175,6 +181,10 @@ class SubredditViewModel @Inject constructor(
 
     fun setSorting(sorting: Sorting) {
         _sorting.updateValue(sorting)
+    }
+
+    fun setPostTypeFilter(filter: PostTypeFilter) {
+        postTypeFilterRepository.setPostTypeFilter(filter)
     }
 
     fun toggleDescriptionCollapsed() {

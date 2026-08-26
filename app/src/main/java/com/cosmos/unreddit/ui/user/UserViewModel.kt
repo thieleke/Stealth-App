@@ -9,6 +9,7 @@ import com.cosmos.unreddit.data.local.mapper.PostMapper2
 import com.cosmos.unreddit.data.local.mapper.UserMapper2
 import com.cosmos.unreddit.data.model.Comment
 import com.cosmos.unreddit.data.model.Data
+import com.cosmos.unreddit.data.model.PostTypeFilter
 import com.cosmos.unreddit.data.model.Resource
 import com.cosmos.unreddit.data.model.Sort
 import com.cosmos.unreddit.data.model.Sorting
@@ -16,6 +17,7 @@ import com.cosmos.unreddit.data.model.User
 import com.cosmos.unreddit.data.model.db.PostEntity
 import com.cosmos.unreddit.data.model.preferences.ContentPreferences
 import com.cosmos.unreddit.data.repository.PostListRepository
+import com.cosmos.unreddit.data.repository.PostTypeFilterRepository
 import com.cosmos.unreddit.data.repository.PreferencesRepository
 import com.cosmos.unreddit.di.DispatchersModule
 import com.cosmos.unreddit.ui.base.BaseViewModel
@@ -57,6 +59,7 @@ class UserViewModel @Inject constructor(
     private val postMapper: PostMapper2,
     private val commentMapper: CommentMapper2,
     private val userMapper: UserMapper2,
+    private val postTypeFilterRepository: PostTypeFilterRepository,
     @DispatchersModule.DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher
 ) : BaseViewModel(preferencesRepository, repository) {
 
@@ -65,6 +68,8 @@ class UserViewModel @Inject constructor(
 
     private val _sorting: MutableStateFlow<Sorting> = MutableStateFlow(DEFAULT_SORTING)
     val sorting: StateFlow<Sorting> = _sorting
+
+    val postTypeFilter: StateFlow<PostTypeFilter> = postTypeFilterRepository.postTypeFilter
 
     private val _user: MutableStateFlow<String> = MutableStateFlow("")
     val user: StateFlow<String> = _user
@@ -129,9 +134,10 @@ class UserViewModel @Inject constructor(
 
     private val searchData: StateFlow<Data.Fetch> = combine(
         user,
-        sorting
-    ) { user, sorting ->
-        Data.Fetch(user, sorting)
+        sorting,
+        postTypeFilter
+    ) { user, sorting, filter ->
+        Data.Fetch(user, sorting, filter)
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000),
@@ -173,7 +179,7 @@ class UserViewModel @Inject constructor(
         data: Data.Fetch,
         user: Data.User
     ): Flow<PagingData<PostEntity>> {
-        return repository.getUserPosts(data.query, data.sorting)
+        return repository.getUserPosts(data.query, data.sorting, data.filter)
             .map { pagingData ->
                 PostUtil.filterPosts(pagingData, latestUser ?: user, postMapper, defaultDispatcher)
             }
@@ -227,6 +233,10 @@ class UserViewModel @Inject constructor(
 
     fun setSorting(sorting: Sorting) {
         _sorting.updateValue(sorting)
+    }
+
+    fun setPostTypeFilter(filter: PostTypeFilter) {
+        postTypeFilterRepository.setPostTypeFilter(filter)
     }
 
     fun setUser(user: String) {

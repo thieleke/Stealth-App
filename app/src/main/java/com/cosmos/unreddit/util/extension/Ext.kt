@@ -29,13 +29,17 @@ import coil.size.Precision
 import coil.size.Scale
 import com.cosmos.unreddit.R
 import com.cosmos.unreddit.data.model.Comment
+import com.cosmos.unreddit.data.model.PostTypeFilter
 import com.cosmos.unreddit.data.model.Sorting
 import com.cosmos.unreddit.databinding.IncludeLoadingStateBinding
 import com.cosmos.unreddit.databinding.ItemListContentBinding
 import com.cosmos.unreddit.ui.commentmenu.CommentMenuFragment
+import com.cosmos.unreddit.ui.common.widget.CardButton
 import com.cosmos.unreddit.ui.common.widget.PullToRefreshLayout
+import com.cosmos.unreddit.ui.filter.FilterFragment
 import com.cosmos.unreddit.ui.postdetails.PostDetailsFragment
 import com.cosmos.unreddit.ui.sort.SortFragment
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filter
@@ -77,6 +81,35 @@ fun Fragment.setSortingListener(result: (Sorting?) -> Unit) {
 
 fun Fragment.clearSortingListener() {
     childFragmentManager.clearFragmentResultListener(SortFragment.REQUEST_KEY_SORTING)
+}
+
+fun Fragment.setFilterListener(result: (PostTypeFilter?) -> Unit) {
+    childFragmentManager.setFragmentResultListener(
+        FilterFragment.REQUEST_KEY_FILTER,
+        viewLifecycleOwner
+    ) { _, bundle ->
+        val filter = bundle.serializable<PostTypeFilter>(FilterFragment.BUNDLE_KEY_FILTER)
+        result(filter)
+    }
+}
+
+fun Fragment.clearFilterListener() {
+    childFragmentManager.clearFragmentResultListener(FilterFragment.REQUEST_KEY_FILTER)
+}
+
+/**
+ * Keeps this button in step with [postTypeFilter]: inverted while a filter narrows the list, and
+ * labelled either with what tapping it does or with what it is currently doing.
+ */
+suspend fun CardButton.collectPostTypeFilter(postTypeFilter: Flow<PostTypeFilter>) {
+    postTypeFilter.collect { filter ->
+        val isActive = filter != PostTypeFilter.ALL
+
+        setInverted(isActive)
+        contentDescription = context.getString(
+            if (isActive) R.string.filter_active else R.string.filter_title
+        )
+    }
 }
 
 fun Fragment.setCommentListener(result: (Comment.CommentEntity?) -> Unit) {

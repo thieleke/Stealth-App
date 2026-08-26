@@ -5,12 +5,14 @@ import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.cosmos.unreddit.data.local.mapper.PostMapper2
 import com.cosmos.unreddit.data.model.Data
+import com.cosmos.unreddit.data.model.PostTypeFilter
 import com.cosmos.unreddit.data.model.Sort
 import com.cosmos.unreddit.data.model.Sorting
 import com.cosmos.unreddit.data.model.TimeSorting
 import com.cosmos.unreddit.data.model.db.PostEntity
 import com.cosmos.unreddit.data.model.preferences.ContentPreferences
 import com.cosmos.unreddit.data.repository.PostListRepository
+import com.cosmos.unreddit.data.repository.PostTypeFilterRepository
 import com.cosmos.unreddit.data.repository.PreferencesRepository
 import com.cosmos.unreddit.di.DispatchersModule
 import com.cosmos.unreddit.ui.base.BaseViewModel
@@ -36,6 +38,7 @@ class SubredditSearchViewModel @Inject constructor(
     private val repository: PostListRepository,
     preferencesRepository: PreferencesRepository,
     private val postMapper: PostMapper2,
+    private val postTypeFilterRepository: PostTypeFilterRepository,
     @DispatchersModule.DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher
 ) : BaseViewModel(preferencesRepository, repository) {
 
@@ -44,6 +47,8 @@ class SubredditSearchViewModel @Inject constructor(
 
     private val _sorting: MutableStateFlow<Sorting> = MutableStateFlow(DEFAULT_SORTING)
     val sorting: StateFlow<Sorting> = _sorting
+
+    val postTypeFilter: StateFlow<PostTypeFilter> = postTypeFilterRepository.postTypeFilter
 
     private val _query: MutableStateFlow<String> = MutableStateFlow("")
     val query: StateFlow<String> = _query
@@ -55,9 +60,10 @@ class SubredditSearchViewModel @Inject constructor(
 
     val searchData: StateFlow<Data.Fetch> = combine(
         query,
-        sorting
-    ) { query, sorting ->
-        Data.Fetch(query, sorting)
+        sorting,
+        postTypeFilter
+    ) { query, sorting, filter ->
+        Data.Fetch(query, sorting, filter)
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000),
@@ -89,7 +95,8 @@ class SubredditSearchViewModel @Inject constructor(
         user: Data.User
     ): Flow<PagingData<PostEntity>> {
         // TODO: Check subreddit value is not blank
-        return repository.searchInSubreddit(data.query, subreddit.value, data.sorting)
+        return repository
+            .searchInSubreddit(data.query, subreddit.value, data.sorting, data.filter)
             .map { pagingData ->
                 PostUtil.filterPosts(pagingData, latestUser ?: user, postMapper, defaultDispatcher)
             }
@@ -101,6 +108,10 @@ class SubredditSearchViewModel @Inject constructor(
 
     fun setSorting(sorting: Sorting) {
         _sorting.updateValue(sorting)
+    }
+
+    fun setPostTypeFilter(filter: PostTypeFilter) {
+        postTypeFilterRepository.setPostTypeFilter(filter)
     }
 
     fun setSubreddit(subreddit: String) {

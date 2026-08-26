@@ -9,6 +9,7 @@ import com.cosmos.unreddit.data.local.mapper.PostMapper2
 import com.cosmos.unreddit.data.local.mapper.SubredditMapper2
 import com.cosmos.unreddit.data.local.mapper.UserMapper2
 import com.cosmos.unreddit.data.model.Data
+import com.cosmos.unreddit.data.model.PostTypeFilter
 import com.cosmos.unreddit.data.model.Sort
 import com.cosmos.unreddit.data.model.Sorting
 import com.cosmos.unreddit.data.model.TimeSorting
@@ -19,6 +20,7 @@ import com.cosmos.unreddit.data.model.preferences.ContentPreferences
 import com.cosmos.unreddit.data.remote.api.reddit.model.AboutChild
 import com.cosmos.unreddit.data.remote.api.reddit.model.AboutUserChild
 import com.cosmos.unreddit.data.repository.PostListRepository
+import com.cosmos.unreddit.data.repository.PostTypeFilterRepository
 import com.cosmos.unreddit.data.repository.PreferencesRepository
 import com.cosmos.unreddit.di.DispatchersModule
 import com.cosmos.unreddit.ui.base.BaseViewModel
@@ -48,6 +50,7 @@ class SearchViewModel @Inject constructor(
     private val postMapper: PostMapper2,
     private val subredditMapper: SubredditMapper2,
     private val userMapper: UserMapper2,
+    private val postTypeFilterRepository: PostTypeFilterRepository,
     @DispatchersModule.DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher
 ) : BaseViewModel(preferencesRepository, repository) {
 
@@ -56,6 +59,8 @@ class SearchViewModel @Inject constructor(
 
     private val _sorting: MutableStateFlow<Sorting> = MutableStateFlow(DEFAULT_SORTING)
     val sorting: StateFlow<Sorting> = _sorting
+
+    val postTypeFilter: StateFlow<PostTypeFilter> = postTypeFilterRepository.postTypeFilter
 
     private val _query: MutableStateFlow<String> = MutableStateFlow("")
     val query: StateFlow<String> get() = _query
@@ -78,9 +83,10 @@ class SearchViewModel @Inject constructor(
 
     private val searchData: StateFlow<Data.Fetch> = combine(
         query,
-        sorting
-    ) { query, sorting ->
-        Data.Fetch(query, sorting)
+        sorting,
+        postTypeFilter
+    ) { query, sorting, filter ->
+        Data.Fetch(query, sorting, filter)
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000),
@@ -120,7 +126,7 @@ class SearchViewModel @Inject constructor(
         data: Data.Fetch,
         user: Data.User
     ): Flow<PagingData<PostEntity>> {
-        return repository.searchPost(data.query, data.sorting)
+        return repository.searchPost(data.query, data.sorting, data.filter)
             .map { pagingData ->
                 PostUtil.filterPosts(pagingData, user, postMapper, defaultDispatcher)
             }
@@ -150,6 +156,10 @@ class SearchViewModel @Inject constructor(
                     .filter { user.contentPreferences.showNsfw || !it.over18 }
             }
             .flowOn(defaultDispatcher)
+    }
+
+    fun setPostTypeFilter(filter: PostTypeFilter) {
+        postTypeFilterRepository.setPostTypeFilter(filter)
     }
 
     fun setSorting(sorting: Sorting) {

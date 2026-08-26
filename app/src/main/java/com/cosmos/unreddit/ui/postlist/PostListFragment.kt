@@ -28,6 +28,7 @@ import com.cosmos.unreddit.ui.base.BaseFragment
 import com.cosmos.unreddit.ui.common.ProfileNameDialog
 import com.cosmos.unreddit.ui.common.widget.PullToRefreshLayout
 import com.cosmos.unreddit.ui.common.widget.PullToRefreshView
+import com.cosmos.unreddit.ui.filter.FilterFragment
 import com.cosmos.unreddit.ui.loadstate.NetworkLoadStateAdapter
 import com.cosmos.unreddit.ui.sort.SortFragment
 import com.cosmos.unreddit.util.DateUtil
@@ -36,12 +37,15 @@ import com.cosmos.unreddit.util.PanelSwipeListener
 import com.cosmos.unreddit.util.extension.applyMarginWindowInsets
 import com.cosmos.unreddit.util.extension.applyWindowInsets
 import com.cosmos.unreddit.util.extension.betterSmoothScrollToPosition
+import com.cosmos.unreddit.util.extension.clearFilterListener
 import com.cosmos.unreddit.util.extension.clearNavigationListener
 import com.cosmos.unreddit.util.extension.clearSortingListener
 import com.cosmos.unreddit.util.extension.clearWindowInsetsListener
+import com.cosmos.unreddit.util.extension.collectPostTypeFilter
 import com.cosmos.unreddit.util.extension.getFloatValue
 import com.cosmos.unreddit.util.extension.launchRepeat
 import com.cosmos.unreddit.util.extension.onRefreshFromNetwork
+import com.cosmos.unreddit.util.extension.setFilterListener
 import com.cosmos.unreddit.util.extension.setNavigationListener
 import com.cosmos.unreddit.util.extension.setSortingListener
 import com.google.android.material.appbar.AppBarLayout
@@ -179,6 +183,10 @@ class PostListFragment : BaseFragment(), PullToRefreshLayout.OnRefreshListener,
             }
 
             launch {
+                binding.appBar.filterCard.collectPostTypeFilter(viewModel.postTypeFilter)
+            }
+
+            launch {
                 viewModel.currentProfile.collect {
                     profileAdapter.currentProfileId = it.id
                     binding.appBar.profileImage.setText(it.name)
@@ -284,6 +292,7 @@ class PostListFragment : BaseFragment(), PullToRefreshLayout.OnRefreshListener,
     private fun initAppBar() {
         binding.appBar.run {
             sortCard.setOnClickListener { showSortDialog() }
+            filterCard.setOnClickListener { showFilterDialog() }
             profileImage.setOnClickListener { openProfileDrawer() }
             title.setOnClickListener { scrollToTop() }
         }
@@ -292,6 +301,8 @@ class PostListFragment : BaseFragment(), PullToRefreshLayout.OnRefreshListener,
 
     private fun initResultListener() {
         setSortingListener { sorting -> sorting?.let { viewModel.setSorting(it) } }
+
+        setFilterListener { filter -> filter?.let { viewModel.setPostTypeFilter(it) } }
 
         setNavigationListener { showNavigation ->
             uiViewModel.setNavigationVisibility(showNavigation && onOffsetChangedListener.visible)
@@ -304,6 +315,10 @@ class PostListFragment : BaseFragment(), PullToRefreshLayout.OnRefreshListener,
 
     private fun showSortDialog() {
         SortFragment.show(childFragmentManager, viewModel.sorting.value)
+    }
+
+    private fun showFilterDialog() {
+        FilterFragment.show(childFragmentManager, viewModel.postTypeFilter.value)
     }
 
     private fun updateContainerView(
@@ -413,6 +428,7 @@ class PostListFragment : BaseFragment(), PullToRefreshLayout.OnRefreshListener,
     override fun onStop() {
         super.onStop()
         clearSortingListener()
+        clearFilterListener()
         clearNavigationListener()
     }
 

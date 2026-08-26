@@ -56,6 +56,14 @@
     <string name="sort_comments">Comments</string>
     <string name="sort_best">Best</string>
     <string name="sort_old">Old</string>
+
+    <string name="filter_title">Filter</string>
+    <string name="filter_all">All</string>
+    <string name="filter_text">Text</string>
+    <string name="filter_media">Media</string>
+    <string name="filter_images">Images</string>
+    <string name="filter_videos">Videos</string>
+    <string name="filter_active">Post type filter active</string>
     <string name="sort_qa">Q&amp;A</string>
 
     <string name="fragment_subscriptions_label">Subscriptions</string>

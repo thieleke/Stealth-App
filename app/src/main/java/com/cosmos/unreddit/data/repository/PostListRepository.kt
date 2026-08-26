@@ -5,6 +5,7 @@ import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import com.cosmos.unreddit.data.local.RedditDatabase
 import com.cosmos.unreddit.data.model.Comment
+import com.cosmos.unreddit.data.model.PostTypeFilter
 import com.cosmos.unreddit.data.model.Sort
 import com.cosmos.unreddit.data.model.Sorting
 import com.cosmos.unreddit.data.model.db.History
@@ -59,6 +60,7 @@ class PostListRepository @Inject constructor(
     fun getPosts(
         subreddit: String,
         sorting: Sorting,
+        postTypeFilter: PostTypeFilter = PostTypeFilter.ALL,
         pageSize: Int = DEFAULT_LIMIT
     ): Flow<PagingData<Child>> {
         return Pager(PagingConfig(pageSize = pageSize)) {
@@ -67,7 +69,8 @@ class PostListRepository @Inject constructor(
                 listOf(subreddit),
                 sorting,
                 defaultDispatcher,
-                mainImmediateDispatcher
+                mainImmediateDispatcher,
+                postTypeFilter
             )
         }.flow
     }
@@ -75,6 +78,7 @@ class PostListRepository @Inject constructor(
     fun getPosts(
         subreddit: List<String>,
         sorting: Sorting,
+        postTypeFilter: PostTypeFilter = PostTypeFilter.ALL,
         pageSize: Int = DEFAULT_LIMIT
     ): Flow<PagingData<Child>> {
         return Pager(PagingConfig(pageSize = pageSize)) {
@@ -83,7 +87,8 @@ class PostListRepository @Inject constructor(
                 subreddit,
                 sorting,
                 defaultDispatcher,
-                mainImmediateDispatcher
+                mainImmediateDispatcher,
+                postTypeFilter
             )
         }.flow
     }
@@ -120,10 +125,11 @@ class PostListRepository @Inject constructor(
     fun getUserPosts(
         user: String,
         sorting: Sorting,
+        postTypeFilter: PostTypeFilter = PostTypeFilter.ALL,
         pageSize: Int = DEFAULT_LIMIT
     ): Flow<PagingData<Child>> {
         return Pager(PagingConfig(pageSize = pageSize)) {
-            UserPostsDataSource(source, user, sorting)
+            UserPostsDataSource(source, user, sorting, postTypeFilter)
         }.flow
     }
 
@@ -171,10 +177,11 @@ class PostListRepository @Inject constructor(
     fun searchPost(
         query: String,
         sorting: Sorting,
+        postTypeFilter: PostTypeFilter = PostTypeFilter.ALL,
         pageSize: Int = DEFAULT_LIMIT
     ): Flow<PagingData<Child>> {
         return Pager(PagingConfig(pageSize = pageSize)) {
-            SearchPostDataSource(source, query, sorting)
+            SearchPostDataSource(source, query, sorting, postTypeFilter)
         }.flow
     }
 
@@ -202,10 +209,11 @@ class PostListRepository @Inject constructor(
         query: String,
         subreddit: String,
         sorting: Sorting,
+        postTypeFilter: PostTypeFilter = PostTypeFilter.ALL,
         pageSize: Int = DEFAULT_LIMIT
     ): Flow<PagingData<Child>> {
         return Pager(PagingConfig(pageSize = pageSize)) {
-            SubredditSearchPostDataSource(source, subreddit, query, sorting)
+            SubredditSearchPostDataSource(source, subreddit, query, sorting, postTypeFilter)
         }.flow
     }
 

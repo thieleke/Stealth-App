@@ -107,6 +107,16 @@
             android:paddingHorizontal="@dimen/app_bar_margin"
             app:sortType="general"/>
 
+        <com.cosmos.unreddit.ui.common.widget.CardButton
+            android:id="@+id/filter_card"
+            android:layout_width="@dimen/app_bar_button_size"
+            android:layout_height="@dimen/app_bar_button_size"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/sort_icon"
+            app:layout_constraintBottom_toBottomOf="@id/guideline_app_bar"
+            app:icon="@drawable/ic_filter"
+            style="@style/CardButtonStyle"/>
+
         <androidx.constraintlayout.widget.Guideline
             android:id="@+id/guideline_app_bar"
             android:layout_width="wrap_content"

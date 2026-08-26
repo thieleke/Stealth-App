@@ -13,6 +13,7 @@ import com.cosmos.unreddit.R
 import com.cosmos.unreddit.data.repository.PostListRepository
 import com.cosmos.unreddit.databinding.FragmentSubredditSearchBinding
 import com.cosmos.unreddit.ui.base.BaseFragment
+import com.cosmos.unreddit.ui.filter.FilterFragment
 import com.cosmos.unreddit.ui.loadstate.NetworkLoadStateAdapter
 import com.cosmos.unreddit.ui.postlist.PostListAdapter
 import com.cosmos.unreddit.ui.sort.SortFragment
@@ -20,11 +21,14 @@ import com.cosmos.unreddit.util.SearchUtil
 import com.cosmos.unreddit.util.extension.addLoadStateListener
 import com.cosmos.unreddit.util.extension.applyWindowInsets
 import com.cosmos.unreddit.util.extension.betterSmoothScrollToPosition
+import com.cosmos.unreddit.util.extension.clearFilterListener
 import com.cosmos.unreddit.util.extension.clearSortingListener
+import com.cosmos.unreddit.util.extension.collectPostTypeFilter
 import com.cosmos.unreddit.util.extension.hideSoftKeyboard
 import com.cosmos.unreddit.util.extension.launchRepeat
 import com.cosmos.unreddit.util.extension.loadSubredditIcon
 import com.cosmos.unreddit.util.extension.onRefreshFromNetwork
+import com.cosmos.unreddit.util.extension.setFilterListener
 import com.cosmos.unreddit.util.extension.setSortingListener
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.collectLatest
@@ -119,6 +123,10 @@ class SubredditSearchFragment : BaseFragment(), PostListAdapter.PostClickListene
             }
 
             launch {
+                binding.appBar.filterCard.collectPostTypeFilter(viewModel.postTypeFilter)
+            }
+
+            launch {
                 viewModel.postDataFlow.collectLatest {
                     postListAdapter.submitData(it)
                 }
@@ -153,6 +161,7 @@ class SubredditSearchFragment : BaseFragment(), PostListAdapter.PostClickListene
         with(binding.appBar) {
             subredditImage.loadSubredditIcon(args.icon)
             sortCard.setOnClickListener { showSortDialog() }
+            filterCard.setOnClickListener { showFilterDialog() }
             cancelCard.setOnClickListener { cancelSearch() }
             backCard.setOnClickListener { onBackPressed() }
             label.setOnClickListener { showSearchInput(true) }
@@ -163,6 +172,7 @@ class SubredditSearchFragment : BaseFragment(), PostListAdapter.PostClickListene
                 addTarget(label)
                 addTarget(sortIcon)
                 addTarget(sortCard)
+                addTarget(filterCard)
                 addTarget(cancelCard)
                 setSearchActionListener {
                     handleSearchAction(it)
@@ -173,6 +183,8 @@ class SubredditSearchFragment : BaseFragment(), PostListAdapter.PostClickListene
 
     private fun initResultListener() {
         setSortingListener { sorting -> sorting?.let { viewModel.setSorting(it) } }
+
+        setFilterListener { filter -> filter?.let { viewModel.setPostTypeFilter(it) } }
     }
 
     private fun scrollToTop() {
@@ -186,6 +198,7 @@ class SubredditSearchFragment : BaseFragment(), PostListAdapter.PostClickListene
                 label.isVisible = !show
                 sortCard.isVisible = !show
                 sortIcon.isVisible = !show
+                filterCard.isVisible = !show
                 subredditImage.isVisible = !show
                 cancelCard.isVisible = show
             }
@@ -198,6 +211,10 @@ class SubredditSearchFragment : BaseFragment(), PostListAdapter.PostClickListene
             viewModel.sorting.value,
             SortFragment.SortType.SEARCH
         )
+    }
+
+    private fun showFilterDialog() {
+        FilterFragment.show(childFragmentManager, viewModel.postTypeFilter.value)
     }
 
     private fun showRetryBar() {
@@ -233,6 +250,7 @@ class SubredditSearchFragment : BaseFragment(), PostListAdapter.PostClickListene
     override fun onDestroyView() {
         super.onDestroyView()
         clearSortingListener()
+        clearFilterListener()
         _binding = null
     }
 

@@ -166,7 +166,7 @@
             android:layout_width="@dimen/app_bar_button_size"
             android:layout_height="@dimen/app_bar_button_size"
             android:layout_marginEnd="@dimen/app_bar_margin"
-            app:layout_constraintEnd_toStartOf="@id/sort_icon"
+            app:layout_constraintEnd_toStartOf="@id/filter_card"
             app:layout_constraintTop_toTopOf="@id/user_header"
             app:layout_constraintBottom_toBottomOf="@id/user_header">
         </Constraint>

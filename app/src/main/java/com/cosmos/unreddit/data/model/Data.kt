@@ -4,9 +4,17 @@ import com.cosmos.unreddit.data.model.preferences.ContentPreferences
 
 sealed class Data {
 
-    data class Fetch(val query: String, val sorting: Sorting) : Data()
+    data class Fetch(
+        val query: String,
+        val sorting: Sorting,
+        val filter: PostTypeFilter = PostTypeFilter.ALL
+    ) : Data()
 
-    data class FetchMultiple(val query: List<String>, val sorting: Sorting) : Data()
+    data class FetchMultiple(
+        val query: List<String>,
+        val sorting: Sorting,
+        val filter: PostTypeFilter = PostTypeFilter.ALL
+    ) : Data()
 
     data class User(
         val history: List<String>,

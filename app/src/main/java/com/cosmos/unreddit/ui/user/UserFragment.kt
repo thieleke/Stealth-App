@@ -20,14 +20,18 @@ import com.cosmos.unreddit.data.model.db.PostEntity
 import com.cosmos.unreddit.databinding.FragmentUserBinding
 import com.cosmos.unreddit.ui.base.BaseFragment
 import com.cosmos.unreddit.ui.common.adapter.FragmentAdapter
+import com.cosmos.unreddit.ui.filter.FilterFragment
 import com.cosmos.unreddit.ui.postmenu.PostMenuFragment
 import com.cosmos.unreddit.ui.sort.SortFragment
 import com.cosmos.unreddit.util.extension.clearCommentListener
+import com.cosmos.unreddit.util.extension.clearFilterListener
 import com.cosmos.unreddit.util.extension.clearSortingListener
+import com.cosmos.unreddit.util.extension.collectPostTypeFilter
 import com.cosmos.unreddit.util.extension.getRecyclerView
 import com.cosmos.unreddit.util.extension.launchRepeat
 import com.cosmos.unreddit.util.extension.scrollToTop
 import com.cosmos.unreddit.util.extension.setCommentListener
+import com.cosmos.unreddit.util.extension.setFilterListener
 import com.cosmos.unreddit.util.extension.setSortingListener
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.tabs.TabLayout
@@ -92,6 +96,10 @@ class UserFragment : BaseFragment() {
             }
 
             launch {
+                binding.filterCard.collectPostTypeFilter(viewModel.postTypeFilter)
+            }
+
+            launch {
                 viewModel.about.collect {
                     when (it) {
                         is Resource.Success -> bindInfo(it.data)
@@ -152,6 +160,7 @@ class UserFragment : BaseFragment() {
     private fun initAppBar() {
         with(binding) {
             sortCard.setOnClickListener { showSortDialog() }
+            filterCard.setOnClickListener { showFilterDialog() }
             backCard.setOnClickListener { onBackPressed() }
             userStar.setOnClickListener {
                 val newState = !userStar.isChecked
@@ -170,6 +179,7 @@ class UserFragment : BaseFragment() {
         setSortingListener { sorting ->
             sorting?.let { viewModel.setSorting(sorting) }
         }
+        setFilterListener { filter -> filter?.let { viewModel.setPostTypeFilter(it) } }
         setCommentListener { comment -> comment?.let { viewModel.toggleSaveComment(it) } }
     }
 
@@ -214,6 +224,10 @@ class UserFragment : BaseFragment() {
         SortFragment.show(childFragmentManager, viewModel.sorting.value)
     }
 
+    private fun showFilterDialog() {
+        FilterFragment.show(childFragmentManager, viewModel.postTypeFilter.value)
+    }
+
     private fun showNotFoundDialog() {
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.dialog_user_not_found_title)
@@ -247,6 +261,7 @@ class UserFragment : BaseFragment() {
         viewModel.layoutState = binding.layoutRoot.currentState
 
         clearSortingListener()
+        clearFilterListener()
         clearCommentListener()
 
         _binding = null
